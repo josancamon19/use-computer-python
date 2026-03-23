@@ -2,31 +2,19 @@ from __future__ import annotations
 
 import httpx
 
-from mmini.sandbox import Sandbox
+from mmini.sandbox import AsyncSandbox, Sandbox
 
 
 class Mmini:
     """mmini client. Creates and manages macOS sandboxes."""
 
-    def __init__(
-        self,
-        api_key: str | None = None,
-        base_url: str = "http://localhost:8080",
-    ):
+    def __init__(self, api_key: str | None = None, base_url: str = "http://localhost:8080"):
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
-        self._http = httpx.Client(
-            base_url=self._base_url,
-            headers=self._headers(),
-            http2=True,
-            timeout=60.0,
-        )
-
-    def _headers(self) -> dict[str, str]:
-        h: dict[str, str] = {}
-        if self._api_key:
-            h["Authorization"] = f"Bearer {self._api_key}"
-        return h
+        headers: dict[str, str] = {}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        self._http = httpx.Client(base_url=self._base_url, headers=headers, http2=True, timeout=60.0)
 
     def create(self, *, seed: list[dict] | None = None) -> Sandbox:
         kwargs: dict = {}
@@ -61,3 +49,48 @@ class Mmini:
 
     def __exit__(self, *_):
         self.close()
+
+
+class AsyncMmini:
+    """Async mmini client."""
+
+    def __init__(self, api_key: str | None = None, base_url: str = "http://localhost:8080"):
+        self._base_url = base_url.rstrip("/")
+        headers: dict[str, str] = {}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        self._http = httpx.AsyncClient(base_url=self._base_url, headers=headers, http2=True, timeout=60.0)
+
+    async def create(self, *, seed: list[dict] | None = None) -> AsyncSandbox:
+        kwargs: dict = {}
+        if seed:
+            kwargs["json"] = {"seed": seed}
+        resp = await self._http.post("/v1/sandboxes", **kwargs)
+        resp.raise_for_status()
+        data = resp.json()
+        return AsyncSandbox(
+            sandbox_id=data["sandbox_id"],
+            vnc_url=f"{self._base_url}{data['vnc_url']}",
+            ssh_url=f"{self._base_url}{data['ssh_url']}",
+            http=self._http,
+        )
+
+    async def get(self, sandbox_id: str) -> AsyncSandbox:
+        resp = await self._http.get(f"/v1/sandboxes/{sandbox_id}")
+        resp.raise_for_status()
+        data = resp.json()
+        return AsyncSandbox(
+            sandbox_id=data["sandbox_id"],
+            vnc_url=f"{self._base_url}{data['vnc_url']}",
+            ssh_url=f"{self._base_url}{data['ssh_url']}",
+            http=self._http,
+        )
+
+    async def close(self):
+        await self._http.aclose()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_):
+        await self.close()
