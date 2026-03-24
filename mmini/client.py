@@ -16,11 +16,8 @@ class Mmini:
             headers["Authorization"] = f"Bearer {api_key}"
         self._http = httpx.Client(base_url=self._base_url, headers=headers, http2=True, timeout=60.0)
 
-    def create(self, *, seed: list[dict] | None = None) -> Sandbox:
-        kwargs: dict = {}
-        if seed:
-            kwargs["json"] = {"seed": seed}
-        resp = self._http.post("/v1/sandboxes", **kwargs)
+    def create(self) -> Sandbox:
+        resp = self._http.post("/v1/sandboxes")
         resp.raise_for_status()
         data = resp.json()
         return Sandbox(
@@ -61,11 +58,8 @@ class AsyncMmini:
             headers["Authorization"] = f"Bearer {api_key}"
         self._http = httpx.AsyncClient(base_url=self._base_url, headers=headers, http2=True, timeout=60.0)
 
-    async def create(self, *, seed: list[dict] | None = None) -> AsyncSandbox:
-        kwargs: dict = {}
-        if seed:
-            kwargs["json"] = {"seed": seed}
-        resp = await self._http.post("/v1/sandboxes", **kwargs)
+    async def create(self) -> AsyncSandbox:
+        resp = await self._http.post("/v1/sandboxes")
         resp.raise_for_status()
         data = resp.json()
         return AsyncSandbox(

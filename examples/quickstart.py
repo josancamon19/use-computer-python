@@ -7,18 +7,16 @@ Usage:
 
 import time
 
-from mmini import Mmini, Seed
+from mmini import Mmini
 
 client = Mmini()  # defaults to http://localhost:8080
 
-# Create a sandbox with TextEdit already open
-sandbox = client.create(seed=[
-    Seed.launch("TextEdit"),
-])
+sandbox = client.create()
 print(f"Created: {sandbox}")
 print(f"VNC:     {sandbox.vnc_url}")
 
-# Wait for TextEdit to fully open
+# Open TextEdit via exec
+sandbox.exec_ssh("open -a TextEdit")
 time.sleep(2)
 
 # Click in the document area to focus it
