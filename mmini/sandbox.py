@@ -27,10 +27,16 @@ class Sandbox:
         self.recording = Recording(http, self._prefix)
         self.display = Display(http, self._prefix)
 
-    def act(self, action: dict, screenshot_after: bool = True, screenshot_delay_ms: int = 100) -> dict:
+    def act(
+        self, action: dict, screenshot_after: bool = True, screenshot_delay_ms: int = 100,
+    ) -> dict:
         resp = self._http.post(
             f"{self._prefix}/act",
-            json={"action": action, "screenshot_after": screenshot_after, "screenshot_delay_ms": screenshot_delay_ms},
+            json={
+                "action": action,
+                "screenshot_after": screenshot_after,
+                "screenshot_delay_ms": screenshot_delay_ms,
+            },
         )
         resp.raise_for_status()
         if screenshot_after and resp.headers.get("content-type", "").startswith("image/"):
@@ -48,6 +54,75 @@ class Sandbox:
             content=data, headers={"Content-Type": "application/octet-stream"},
         )
         resp.raise_for_status()
+
+    def upload_dir(self, local_dir: str | Path, remote_dir: str) -> None:
+        import io
+        import tarfile
+
+        local_dir = Path(local_dir)
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+            for item in local_dir.rglob("*"):
+                tar.add(str(item), arcname=str(item.relative_to(local_dir)))
+        self.upload_bytes(
+            buf.getvalue(),
+            f"/tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz",
+        )
+        self.exec_ssh(
+            f"mkdir -p {remote_dir}"
+            f" && tar xzf /tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz"
+            f" -C {remote_dir}"
+            f" && rm -f /tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz"
+        )
+
+    def download_file(self, remote_path: str, local_path: str | Path) -> None:
+        local_path = Path(local_path)
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        resp = self._http.get(
+            f"{self._prefix}/files", params={"path": remote_path},
+        )
+        resp.raise_for_status()
+        local_path.write_bytes(resp.content)
+
+    def download_dir(self, remote_dir: str, local_dir: str | Path) -> None:
+        import io
+        import tarfile
+
+        local_dir = Path(local_dir)
+        local_dir.mkdir(parents=True, exist_ok=True)
+        tar_remote = f"/tmp/_mmini_download_{self.sandbox_id[-8:]}.tar.gz"
+        self.exec_ssh(
+            f"tar czf {tar_remote} -C {remote_dir} . 2>/dev/null; true"
+        )
+
+        resp = self._http.get(
+            f"{self._prefix}/files", params={"path": tar_remote},
+        )
+        if resp.status_code != 200 or len(resp.content) == 0:
+            return
+
+        try:
+            with tarfile.open(
+                fileobj=io.BytesIO(resp.content), mode="r:gz",
+            ) as tar:
+                tar.extractall(path=str(local_dir))
+        except tarfile.ReadError:
+            return
+        self.exec_ssh(f"rm -f {tar_remote}")
+
+    def exec_ssh(self, command: str, timeout: int = 120) -> tuple[int, str]:
+        resp = self._http.post(
+            f"{self._prefix}/exec",
+            json={"command": command},
+            timeout=timeout,
+        )
+        if resp.status_code == 404:
+            raise NotImplementedError(
+                "exec endpoint not available on gateway"
+            )
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("return_code", 0), data.get("stdout", "")
 
     def close(self):
         self._http.delete(f"{self._prefix}")
@@ -78,10 +153,16 @@ class AsyncSandbox:
         self.recording = AsyncRecording(http, self._prefix)
         self.display = AsyncDisplay(http, self._prefix)
 
-    async def act(self, action: dict, screenshot_after: bool = True, screenshot_delay_ms: int = 100) -> dict:
+    async def act(
+        self, action: dict, screenshot_after: bool = True, screenshot_delay_ms: int = 100,
+    ) -> dict:
         resp = await self._http.post(
             f"{self._prefix}/act",
-            json={"action": action, "screenshot_after": screenshot_after, "screenshot_delay_ms": screenshot_delay_ms},
+            json={
+                "action": action,
+                "screenshot_after": screenshot_after,
+                "screenshot_delay_ms": screenshot_delay_ms,
+            },
         )
         resp.raise_for_status()
         if screenshot_after and resp.headers.get("content-type", "").startswith("image/"):
@@ -143,7 +224,9 @@ class AsyncSandbox:
         local_path.write_bytes(resp.content)
 
     async def exec_ssh(self, command: str, timeout: int = 120) -> tuple[int, str]:
-        resp = await self._http.post(f"{self._prefix}/exec", json={"command": command}, timeout=timeout)
+        resp = await self._http.post(
+            f"{self._prefix}/exec", json={"command": command}, timeout=timeout,
+        )
         if resp.status_code == 404:
             raise NotImplementedError("exec endpoint not available on gateway")
         resp.raise_for_status()

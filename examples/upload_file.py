@@ -8,33 +8,36 @@ Usage:
     cd sdk && uv run python examples/upload_file.py
 """
 
-from mmini import Mmini
+import asyncio
 
-client = Mmini()
-sandbox = client.create()
-print(f"Created: {sandbox.sandbox_id}")
+from mmini import AsyncMmini
 
-# Create some content
-content = b"Name,Score\nAlice,95\nBob,87\nCharlie,92\n"
 
-# Upload to the VM
-sandbox.upload("/Users/lume/Desktop/scores.csv", content)
-print("Uploaded scores.csv to Desktop")
+async def main() -> None:
+    client = AsyncMmini()
+    sandbox = await client.create()
+    print(f"Created: {sandbox.sandbox_id}")
 
-# Verify it's there
-return_code, output = sandbox.exec_ssh("cat /Users/lume/Desktop/scores.csv")
-print(f"File contents:\n{output}")
+    # Create some content
+    content = b"Name,Score\nAlice,95\nBob,87\nCharlie,92\n"
 
-# Upload a script and run it
-script = b"""#!/bin/bash
-echo "Hello from uploaded script!"
-echo "Files on Desktop:"
-ls ~/Desktop/
-"""
-sandbox.upload("/Users/lume/Desktop/check.sh", script)
-sandbox.exec_ssh("chmod +x /Users/lume/Desktop/check.sh")
-_, output = sandbox.exec_ssh("/Users/lume/Desktop/check.sh")
-print(f"Script output:\n{output}")
+    # Upload to the VM
+    await sandbox.upload_bytes(content, "/Users/lume/Desktop/scores.csv")
+    print("Uploaded scores.csv to Desktop")
 
-sandbox.close()
-client.close()
+    # Verify it's there
+    _, output = await sandbox.exec_ssh("cat /Users/lume/Desktop/scores.csv")
+    print(f"File contents:\n{output}")
+
+    # Upload a script and run it
+    script = b"#!/bin/bash\necho 'Hello from uploaded script!'\nls ~/Desktop/\n"
+    await sandbox.upload_bytes(script, "/Users/lume/Desktop/check.sh")
+    await sandbox.exec_ssh("chmod +x /Users/lume/Desktop/check.sh")
+    _, output = await sandbox.exec_ssh("/Users/lume/Desktop/check.sh")
+    print(f"Script output:\n{output}")
+
+    await sandbox.close()
+    await client.close()
+
+
+asyncio.run(main())

@@ -14,7 +14,9 @@ class Mmini:
         headers: dict[str, str] = {}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
-        self._http = httpx.Client(base_url=self._base_url, headers=headers, http2=True, timeout=60.0)
+        self._http = httpx.Client(
+            base_url=self._base_url, headers=headers, http2=True, timeout=60.0,
+        )
 
     def create(self) -> Sandbox:
         resp = self._http.post("/v1/sandboxes")
@@ -56,7 +58,9 @@ class AsyncMmini:
         headers: dict[str, str] = {}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
-        self._http = httpx.AsyncClient(base_url=self._base_url, headers=headers, http2=True, timeout=60.0)
+        self._http = httpx.AsyncClient(
+            base_url=self._base_url, headers=headers, http2=True, timeout=60.0,
+        )
 
     async def create(self) -> AsyncSandbox:
         resp = await self._http.post("/v1/sandboxes")
