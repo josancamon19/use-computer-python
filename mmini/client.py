@@ -35,27 +35,6 @@ class Mmini:
             http=self._http,
         )
 
-    def create_ios(
-        self,
-        device_type: str = "",
-        runtime: str = "",
-    ) -> Sandbox:
-        """Create an iOS simulator sandbox."""
-        body: dict = {"type": "ios"}
-        if device_type:
-            body["device_type"] = device_type
-        if runtime:
-            body["runtime"] = runtime
-        resp = self._http.post("/v1/sandboxes", json=body)
-        resp.raise_for_status()
-        data = resp.json()
-        return Sandbox(
-            sandbox_id=data["sandbox_id"],
-            vnc_url="",
-            ssh_url="",
-            http=self._http,
-        )
-
     def get(self, sandbox_id: str) -> Sandbox:
         resp = self._http.get(f"/v1/sandboxes/{sandbox_id}")
         resp.raise_for_status()
@@ -103,27 +82,6 @@ class AsyncMmini:
             sandbox_id=data["sandbox_id"],
             vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
             ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
-            http=self._http,
-        )
-
-    async def create_ios(
-        self,
-        device_type: str = "",
-        runtime: str = "",
-    ) -> AsyncSandbox:
-        """Create an iOS simulator sandbox."""
-        body: dict = {"type": "ios"}
-        if device_type:
-            body["device_type"] = device_type
-        if runtime:
-            body["runtime"] = runtime
-        resp = await self._http.post("/v1/sandboxes", json=body)
-        resp.raise_for_status()
-        data = resp.json()
-        return AsyncSandbox(
-            sandbox_id=data["sandbox_id"],
-            vnc_url="",
-            ssh_url="",
             http=self._http,
         )
 
