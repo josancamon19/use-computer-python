@@ -6,7 +6,7 @@ from mmini.sandbox import AsyncSandbox, Sandbox
 
 
 class Mmini:
-    """mmini client. Creates and manages macOS sandboxes."""
+    """mmini client. Creates and manages macOS and iOS sandboxes."""
 
     def __init__(self, api_key: str | None = None, base_url: str = "http://localhost:8080"):
         self._base_url = base_url.rstrip("/")
@@ -18,14 +18,41 @@ class Mmini:
             base_url=self._base_url, headers=headers, http2=True, timeout=60.0,
         )
 
+    def platforms(self) -> dict:
+        """Discover available platforms, images, runtimes, and device types."""
+        resp = self._http.get("/v1/platforms")
+        resp.raise_for_status()
+        return resp.json()
+
     def create(self) -> Sandbox:
         resp = self._http.post("/v1/sandboxes")
         resp.raise_for_status()
         data = resp.json()
         return Sandbox(
             sandbox_id=data["sandbox_id"],
-            vnc_url=f"{self._base_url}{data['vnc_url']}",
-            ssh_url=f"{self._base_url}{data['ssh_url']}",
+            vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
+            ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
+            http=self._http,
+        )
+
+    def create_ios(
+        self,
+        device_type: str = "",
+        runtime: str = "",
+    ) -> Sandbox:
+        """Create an iOS simulator sandbox."""
+        body: dict = {"type": "ios"}
+        if device_type:
+            body["device_type"] = device_type
+        if runtime:
+            body["runtime"] = runtime
+        resp = self._http.post("/v1/sandboxes", json=body)
+        resp.raise_for_status()
+        data = resp.json()
+        return Sandbox(
+            sandbox_id=data["sandbox_id"],
+            vnc_url="",
+            ssh_url="",
             http=self._http,
         )
 
@@ -35,8 +62,8 @@ class Mmini:
         data = resp.json()
         return Sandbox(
             sandbox_id=data["sandbox_id"],
-            vnc_url=f"{self._base_url}{data['vnc_url']}",
-            ssh_url=f"{self._base_url}{data['ssh_url']}",
+            vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
+            ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
             http=self._http,
         )
 
@@ -62,14 +89,41 @@ class AsyncMmini:
             base_url=self._base_url, headers=headers, http2=True, timeout=60.0,
         )
 
+    async def platforms(self) -> dict:
+        """Discover available platforms, images, runtimes, and device types."""
+        resp = await self._http.get("/v1/platforms")
+        resp.raise_for_status()
+        return resp.json()
+
     async def create(self) -> AsyncSandbox:
         resp = await self._http.post("/v1/sandboxes")
         resp.raise_for_status()
         data = resp.json()
         return AsyncSandbox(
             sandbox_id=data["sandbox_id"],
-            vnc_url=f"{self._base_url}{data['vnc_url']}",
-            ssh_url=f"{self._base_url}{data['ssh_url']}",
+            vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
+            ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
+            http=self._http,
+        )
+
+    async def create_ios(
+        self,
+        device_type: str = "",
+        runtime: str = "",
+    ) -> AsyncSandbox:
+        """Create an iOS simulator sandbox."""
+        body: dict = {"type": "ios"}
+        if device_type:
+            body["device_type"] = device_type
+        if runtime:
+            body["runtime"] = runtime
+        resp = await self._http.post("/v1/sandboxes", json=body)
+        resp.raise_for_status()
+        data = resp.json()
+        return AsyncSandbox(
+            sandbox_id=data["sandbox_id"],
+            vnc_url="",
+            ssh_url="",
             http=self._http,
         )
 
@@ -79,8 +133,8 @@ class AsyncMmini:
         data = resp.json()
         return AsyncSandbox(
             sandbox_id=data["sandbox_id"],
-            vnc_url=f"{self._base_url}{data['vnc_url']}",
-            ssh_url=f"{self._base_url}{data['ssh_url']}",
+            vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
+            ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
             http=self._http,
         )
 
