@@ -1,8 +1,18 @@
 from __future__ import annotations
 
+from typing import Literal, overload
+
 import httpx
 
-from mmini.sandbox import AsyncSandbox, Sandbox
+from mmini.sandbox import (
+    AsyncIOSSandbox,
+    AsyncMacOSSandbox,
+    AsyncSandbox,
+    IOSSandbox,
+    MacOSSandbox,
+    Sandbox,
+    SandboxType,
+)
 
 
 class Mmini:
@@ -24,26 +34,60 @@ class Mmini:
         resp.raise_for_status()
         return resp.json()
 
-    def create(self) -> Sandbox:
-        resp = self._http.post("/v1/sandboxes")
+    @overload
+    def create(self, *, type: Literal["macos"] = ..., wait: bool = ...) -> MacOSSandbox: ...
+    @overload
+    def create(self, *, type: Literal["ios"], device_type: str = ..., runtime: str = ...) -> IOSSandbox: ...
+
+    def create(
+        self,
+        *,
+        type: str = "macos",
+        wait: bool = False,
+        device_type: str = "",
+        runtime: str = "",
+    ) -> MacOSSandbox | IOSSandbox:
+        """Create a new sandbox.
+
+        Args:
+            type: "macos" (default) or "ios".
+            wait: macOS only — if True, gateway retries up to 2min when pool is empty.
+            device_type: iOS only — simulator device type identifier.
+            runtime: iOS only — simulator runtime identifier.
+        """
+        body: dict = {"type": type}
+        if type == "ios":
+            if device_type:
+                body["device_type"] = device_type
+            if runtime:
+                body["runtime"] = runtime
+        params = {"wait": "true"} if wait else {}
+
+        resp = self._http.post("/v1/sandboxes", json=body, params=params)
         resp.raise_for_status()
         data = resp.json()
-        return Sandbox(
-            sandbox_id=data["sandbox_id"],
+        sid = data["sandbox_id"]
+
+        if type == "ios":
+            return IOSSandbox(sandbox_id=sid, http=self._http)
+        return MacOSSandbox(
+            sandbox_id=sid, http=self._http,
             vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
             ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
-            http=self._http,
         )
 
     def get(self, sandbox_id: str) -> Sandbox:
+        """Get an existing sandbox by ID. Returns base Sandbox (use create() for typed access)."""
         resp = self._http.get(f"/v1/sandboxes/{sandbox_id}")
         resp.raise_for_status()
         data = resp.json()
-        return Sandbox(
-            sandbox_id=data["sandbox_id"],
+        sb_type = SandboxType(data.get("type", "macos"))
+        if sb_type == SandboxType.IOS:
+            return IOSSandbox(sandbox_id=data["sandbox_id"], http=self._http)
+        return MacOSSandbox(
+            sandbox_id=data["sandbox_id"], http=self._http,
             vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
             ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
-            http=self._http,
         )
 
     def close(self):
@@ -74,26 +118,60 @@ class AsyncMmini:
         resp.raise_for_status()
         return resp.json()
 
-    async def create(self) -> AsyncSandbox:
-        resp = await self._http.post("/v1/sandboxes")
+    @overload
+    async def create(self, *, type: Literal["macos"] = ..., wait: bool = ...) -> AsyncMacOSSandbox: ...
+    @overload
+    async def create(self, *, type: Literal["ios"], device_type: str = ..., runtime: str = ...) -> AsyncIOSSandbox: ...
+
+    async def create(
+        self,
+        *,
+        type: str = "macos",
+        wait: bool = False,
+        device_type: str = "",
+        runtime: str = "",
+    ) -> AsyncMacOSSandbox | AsyncIOSSandbox:
+        """Create a new sandbox.
+
+        Args:
+            type: "macos" (default) or "ios".
+            wait: macOS only — if True, gateway retries up to 2min when pool is empty.
+            device_type: iOS only — simulator device type identifier.
+            runtime: iOS only — simulator runtime identifier.
+        """
+        body: dict = {"type": type}
+        if type == "ios":
+            if device_type:
+                body["device_type"] = device_type
+            if runtime:
+                body["runtime"] = runtime
+        params = {"wait": "true"} if wait else {}
+
+        resp = await self._http.post("/v1/sandboxes", json=body, params=params)
         resp.raise_for_status()
         data = resp.json()
-        return AsyncSandbox(
-            sandbox_id=data["sandbox_id"],
+        sid = data["sandbox_id"]
+
+        if type == "ios":
+            return AsyncIOSSandbox(sandbox_id=sid, http=self._http)
+        return AsyncMacOSSandbox(
+            sandbox_id=sid, http=self._http,
             vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
             ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
-            http=self._http,
         )
 
     async def get(self, sandbox_id: str) -> AsyncSandbox:
+        """Get an existing sandbox by ID."""
         resp = await self._http.get(f"/v1/sandboxes/{sandbox_id}")
         resp.raise_for_status()
         data = resp.json()
-        return AsyncSandbox(
-            sandbox_id=data["sandbox_id"],
+        sb_type = SandboxType(data.get("type", "macos"))
+        if sb_type == SandboxType.IOS:
+            return AsyncIOSSandbox(sandbox_id=data["sandbox_id"], http=self._http)
+        return AsyncMacOSSandbox(
+            sandbox_id=data["sandbox_id"], http=self._http,
             vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
             ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
-            http=self._http,
         )
 
     async def close(self):
