@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from enum import Enum
 from pathlib import Path
-from typing import Any
 
 import httpx
 
 from mmini.display import AsyncDisplay, Display
-from mmini.keyboard import AsyncKeyboard, Keyboard
-from mmini.mouse import AsyncMouse, Mouse
+from mmini.ios.apps import Apps, AsyncApps
+from mmini.ios.environment import AsyncEnvironment, Environment
+from mmini.ios.input import AsyncInput, Input
+from mmini.macos.keyboard import AsyncKeyboard, Keyboard
+from mmini.macos.mouse import AsyncMouse, Mouse
+from mmini.models import ActResult, ExecResult
 from mmini.recording import AsyncRecording, Recording
 from mmini.screenshot import AsyncScreenshot, Screenshot
 
@@ -46,8 +49,6 @@ class Sandbox:
         self.recording = Recording(http, self._prefix)
         self.display = Display(http, self._prefix)
 
-    # -- Files (both platforms) --
-
     def upload(self, local_path: str | Path, remote_path: str) -> None:
         with open(local_path, "rb") as f:
             data = f.read()
@@ -66,8 +67,6 @@ class Sandbox:
         resp = self._http.get(f"{self._prefix}/files", params={"path": remote_path})
         resp.raise_for_status()
         local_path.write_bytes(resp.content)
-
-    # -- Lifecycle --
 
     def close(self):
         self._http.delete(f"{self._prefix}")
@@ -92,21 +91,20 @@ class MacOSSandbox(Sandbox):
 
     def act(
         self, action: dict, screenshot_after: bool = True, screenshot_delay_ms: int = 100,
-    ) -> dict:
+    ) -> ActResult:
         resp = self._http.post(
             f"{self._prefix}/act",
             json={"action": action, "screenshot_after": screenshot_after, "screenshot_delay_ms": screenshot_delay_ms},
         )
         resp.raise_for_status()
         if screenshot_after and resp.headers.get("content-type", "").startswith("image/"):
-            return {"screenshot": resp.content}
-        return resp.json()
+            return ActResult(screenshot=resp.content)
+        return ActResult(data=resp.json())
 
-    def exec_ssh(self, command: str, timeout: int = 120) -> tuple[int, str]:
+    def exec_ssh(self, command: str, timeout: int = 120) -> ExecResult:
         resp = self._http.post(f"{self._prefix}/exec", json={"command": command}, timeout=timeout)
         resp.raise_for_status()
-        data = resp.json()
-        return data.get("return_code", 0), data.get("stdout", "")
+        return ExecResult.from_dict(resp.json())
 
     def upload_dir(self, local_dir: str | Path, remote_dir: str) -> None:
         import io
@@ -148,71 +146,9 @@ class IOSSandbox(Sandbox):
 
     def __init__(self, sandbox_id: str, http: httpx.Client):
         super().__init__(sandbox_id, SandboxType.IOS, http)
-
-    def tap(self, x: float, y: float) -> dict:
-        resp = self._http.post(f"{self._prefix}/tap", json={"x": x, "y": y})
-        resp.raise_for_status()
-        return resp.json()
-
-    def swipe(self, from_x: float, from_y: float, to_x: float, to_y: float) -> dict:
-        resp = self._http.post(
-            f"{self._prefix}/swipe",
-            json={"fromX": from_x, "fromY": from_y, "toX": to_x, "toY": to_y},
-        )
-        resp.raise_for_status()
-        return resp.json()
-
-    def type_text(self, text: str) -> dict:
-        resp = self._http.post(f"{self._prefix}/type", json={"text": text})
-        resp.raise_for_status()
-        return resp.json()
-
-    def press_button(self, button: str) -> dict:
-        """Press a hardware button: HOME, LOCK, SIRI, APPLE_PAY, SIDE_BUTTON."""
-        resp = self._http.post(f"{self._prefix}/button", json={"button": button})
-        resp.raise_for_status()
-        return resp.json()
-
-    def press_key(self, keycode: int) -> dict:
-        resp = self._http.post(f"{self._prefix}/key", json={"keycode": keycode})
-        resp.raise_for_status()
-        return resp.json()
-
-    def open_url(self, url: str) -> dict:
-        resp = self._http.post(f"{self._prefix}/openurl", json={"url": url})
-        resp.raise_for_status()
-        return resp.json()
-
-    def install_app(self, app_path: str) -> dict:
-        resp = self._http.post(f"{self._prefix}/install", json={"appPath": app_path})
-        resp.raise_for_status()
-        return resp.json()
-
-    def launch_app(self, bundle_id: str) -> dict:
-        resp = self._http.post(f"{self._prefix}/launch", json={"bundleId": bundle_id})
-        resp.raise_for_status()
-        return resp.json()
-
-    def terminate_app(self, bundle_id: str) -> dict:
-        resp = self._http.post(f"{self._prefix}/terminate", json={"bundleId": bundle_id})
-        resp.raise_for_status()
-        return resp.json()
-
-    def set_location(self, lat: float, lon: float) -> dict:
-        resp = self._http.post(f"{self._prefix}/location", json={"lat": lat, "lon": lon})
-        resp.raise_for_status()
-        return resp.json()
-
-    def clear_location(self) -> dict:
-        resp = self._http.post(f"{self._prefix}/location", json={"action": "clear"})
-        resp.raise_for_status()
-        return resp.json()
-
-    def set_appearance(self, mode: str) -> dict:
-        """Set dark or light mode."""
-        resp = self._http.post(f"{self._prefix}/appearance", json={"mode": mode})
-        resp.raise_for_status()
-        return resp.json()
+        self.input = Input(http, self._prefix)
+        self.apps = Apps(http, self._prefix)
+        self.environment = Environment(http, self._prefix)
 
 
 # ---------------------------------------------------------------------------
@@ -243,8 +179,6 @@ class AsyncSandbox:
         self.recording = AsyncRecording(http, self._prefix)
         self.display = AsyncDisplay(http, self._prefix)
 
-    # -- Files (both platforms) --
-
     async def upload(self, local_path: str | Path, remote_path: str) -> None:
         with open(local_path, "rb") as f:
             data = f.read()
@@ -263,8 +197,6 @@ class AsyncSandbox:
         resp = await self._http.get(f"{self._prefix}/files", params={"path": remote_path})
         resp.raise_for_status()
         local_path.write_bytes(resp.content)
-
-    # -- Lifecycle --
 
     async def close(self):
         await self._http.delete(f"{self._prefix}")
@@ -289,21 +221,20 @@ class AsyncMacOSSandbox(AsyncSandbox):
 
     async def act(
         self, action: dict, screenshot_after: bool = True, screenshot_delay_ms: int = 100,
-    ) -> dict:
+    ) -> ActResult:
         resp = await self._http.post(
             f"{self._prefix}/act",
             json={"action": action, "screenshot_after": screenshot_after, "screenshot_delay_ms": screenshot_delay_ms},
         )
         resp.raise_for_status()
         if screenshot_after and resp.headers.get("content-type", "").startswith("image/"):
-            return {"screenshot": resp.content}
-        return resp.json()
+            return ActResult(screenshot=resp.content)
+        return ActResult(data=resp.json())
 
-    async def exec_ssh(self, command: str, timeout: int = 120) -> tuple[int, str]:
+    async def exec_ssh(self, command: str, timeout: int = 120) -> ExecResult:
         resp = await self._http.post(f"{self._prefix}/exec", json={"command": command}, timeout=timeout)
         resp.raise_for_status()
-        data = resp.json()
-        return data.get("return_code", 0), data.get("stdout", "")
+        return ExecResult.from_dict(resp.json())
 
     async def upload_dir(self, local_dir: str | Path, remote_dir: str) -> None:
         import io
@@ -344,68 +275,6 @@ class AsyncIOSSandbox(AsyncSandbox):
 
     def __init__(self, sandbox_id: str, http: httpx.AsyncClient):
         super().__init__(sandbox_id, SandboxType.IOS, http)
-
-    async def tap(self, x: float, y: float) -> dict:
-        resp = await self._http.post(f"{self._prefix}/tap", json={"x": x, "y": y})
-        resp.raise_for_status()
-        return resp.json()
-
-    async def swipe(self, from_x: float, from_y: float, to_x: float, to_y: float) -> dict:
-        resp = await self._http.post(
-            f"{self._prefix}/swipe",
-            json={"fromX": from_x, "fromY": from_y, "toX": to_x, "toY": to_y},
-        )
-        resp.raise_for_status()
-        return resp.json()
-
-    async def type_text(self, text: str) -> dict:
-        resp = await self._http.post(f"{self._prefix}/type", json={"text": text})
-        resp.raise_for_status()
-        return resp.json()
-
-    async def press_button(self, button: str) -> dict:
-        """Press a hardware button: HOME, LOCK, SIRI, APPLE_PAY, SIDE_BUTTON."""
-        resp = await self._http.post(f"{self._prefix}/button", json={"button": button})
-        resp.raise_for_status()
-        return resp.json()
-
-    async def press_key(self, keycode: int) -> dict:
-        resp = await self._http.post(f"{self._prefix}/key", json={"keycode": keycode})
-        resp.raise_for_status()
-        return resp.json()
-
-    async def open_url(self, url: str) -> dict:
-        resp = await self._http.post(f"{self._prefix}/openurl", json={"url": url})
-        resp.raise_for_status()
-        return resp.json()
-
-    async def install_app(self, app_path: str) -> dict:
-        resp = await self._http.post(f"{self._prefix}/install", json={"appPath": app_path})
-        resp.raise_for_status()
-        return resp.json()
-
-    async def launch_app(self, bundle_id: str) -> dict:
-        resp = await self._http.post(f"{self._prefix}/launch", json={"bundleId": bundle_id})
-        resp.raise_for_status()
-        return resp.json()
-
-    async def terminate_app(self, bundle_id: str) -> dict:
-        resp = await self._http.post(f"{self._prefix}/terminate", json={"bundleId": bundle_id})
-        resp.raise_for_status()
-        return resp.json()
-
-    async def set_location(self, lat: float, lon: float) -> dict:
-        resp = await self._http.post(f"{self._prefix}/location", json={"lat": lat, "lon": lon})
-        resp.raise_for_status()
-        return resp.json()
-
-    async def clear_location(self) -> dict:
-        resp = await self._http.post(f"{self._prefix}/location", json={"action": "clear"})
-        resp.raise_for_status()
-        return resp.json()
-
-    async def set_appearance(self, mode: str) -> dict:
-        """Set dark or light mode."""
-        resp = await self._http.post(f"{self._prefix}/appearance", json={"mode": mode})
-        resp.raise_for_status()
-        return resp.json()
+        self.input = AsyncInput(http, self._prefix)
+        self.apps = AsyncApps(http, self._prefix)
+        self.environment = AsyncEnvironment(http, self._prefix)

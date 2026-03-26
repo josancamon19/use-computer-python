@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
+
+from mmini.models import DisplayInfo
 
 
 class Display:
@@ -8,12 +12,12 @@ class Display:
         self._http = http
         self._prefix = prefix
 
-    def get_info(self) -> dict:
+    def get_info(self) -> DisplayInfo:
         resp = self._http.get(f"{self._prefix}/display/info")
         resp.raise_for_status()
-        return resp.json()
+        return DisplayInfo.from_dict(resp.json())
 
-    def get_windows(self) -> dict:
+    def get_windows(self) -> list[dict[str, Any]]:
         resp = self._http.get(f"{self._prefix}/display/windows")
         resp.raise_for_status()
         return resp.json()
@@ -24,12 +28,12 @@ class AsyncDisplay:
         self._http = http
         self._prefix = prefix
 
-    async def get_info(self) -> dict:
+    async def get_info(self) -> DisplayInfo:
         resp = await self._http.get(f"{self._prefix}/display/info")
         resp.raise_for_status()
-        return resp.json()
+        return DisplayInfo.from_dict(resp.json())
 
-    async def get_windows(self) -> dict:
+    async def get_windows(self) -> list[dict[str, Any]]:
         resp = await self._http.get(f"{self._prefix}/display/windows")
         resp.raise_for_status()
         return resp.json()

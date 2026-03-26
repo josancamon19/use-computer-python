@@ -1,4 +1,12 @@
 from mmini.client import AsyncMmini, Mmini
+from mmini.models import (
+    ActionResult,
+    ActResult,
+    CursorPosition,
+    DisplayInfo,
+    ExecResult,
+    RecordingInfo,
+)
 from mmini.parsers import Action, parse_pyautogui, parse_xdotool
 from mmini.sandbox import (
     AsyncIOSSandbox,
@@ -11,7 +19,8 @@ from mmini.sandbox import (
 )
 
 __all__ = [
-    "Action", "AsyncIOSSandbox", "AsyncMacOSSandbox", "AsyncMmini", "AsyncSandbox",
-    "IOSSandbox", "MacOSSandbox", "Mmini", "Sandbox", "SandboxType",
+    "Action", "ActionResult", "ActResult", "AsyncIOSSandbox", "AsyncMacOSSandbox",
+    "AsyncMmini", "AsyncSandbox", "CursorPosition", "DisplayInfo", "ExecResult",
+    "IOSSandbox", "MacOSSandbox", "Mmini", "RecordingInfo", "Sandbox", "SandboxType",
     "parse_pyautogui", "parse_xdotool",
 ]

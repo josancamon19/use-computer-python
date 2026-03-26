@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any
-
 import httpx
+
+from mmini.models import RecordingInfo
 
 
 class Recording:
@@ -10,28 +10,28 @@ class Recording:
         self._http = http
         self._prefix = prefix
 
-    def start(self, name: str | None = None) -> dict:
+    def start(self, name: str | None = None) -> RecordingInfo:
         payload: dict = {}
         if name:
             payload["name"] = name
         resp = self._http.post(f"{self._prefix}/recording/start", json=payload)
         resp.raise_for_status()
-        return resp.json()
+        return RecordingInfo.from_dict(resp.json())
 
-    def stop(self, recording_id: str) -> dict:
+    def stop(self, recording_id: str) -> RecordingInfo:
         resp = self._http.post(f"{self._prefix}/recording/stop", json={"id": recording_id})
         resp.raise_for_status()
-        return resp.json()
+        return RecordingInfo.from_dict(resp.json())
 
-    def list_all(self) -> list[dict[str, Any]]:
+    def list_all(self) -> list[RecordingInfo]:
         resp = self._http.get(f"{self._prefix}/recordings")
         resp.raise_for_status()
-        return resp.json()
+        return [RecordingInfo.from_dict(r) for r in resp.json()]
 
-    def get(self, recording_id: str) -> dict:
+    def get(self, recording_id: str) -> RecordingInfo:
         resp = self._http.get(f"{self._prefix}/recordings/{recording_id}")
         resp.raise_for_status()
-        return resp.json()
+        return RecordingInfo.from_dict(resp.json())
 
     def download(self, recording_id: str, local_path: str) -> None:
         with self._http.stream("GET", f"{self._prefix}/recordings/{recording_id}/download") as resp:
@@ -50,28 +50,28 @@ class AsyncRecording:
         self._http = http
         self._prefix = prefix
 
-    async def start(self, name: str | None = None) -> dict:
+    async def start(self, name: str | None = None) -> RecordingInfo:
         payload: dict = {}
         if name:
             payload["name"] = name
         resp = await self._http.post(f"{self._prefix}/recording/start", json=payload)
         resp.raise_for_status()
-        return resp.json()
+        return RecordingInfo.from_dict(resp.json())
 
-    async def stop(self, recording_id: str) -> dict:
+    async def stop(self, recording_id: str) -> RecordingInfo:
         resp = await self._http.post(f"{self._prefix}/recording/stop", json={"id": recording_id})
         resp.raise_for_status()
-        return resp.json()
+        return RecordingInfo.from_dict(resp.json())
 
-    async def list_all(self) -> list[dict[str, Any]]:
+    async def list_all(self) -> list[RecordingInfo]:
         resp = await self._http.get(f"{self._prefix}/recordings")
         resp.raise_for_status()
-        return resp.json()
+        return [RecordingInfo.from_dict(r) for r in resp.json()]
 
-    async def get(self, recording_id: str) -> dict:
+    async def get(self, recording_id: str) -> RecordingInfo:
         resp = await self._http.get(f"{self._prefix}/recordings/{recording_id}")
         resp.raise_for_status()
-        return resp.json()
+        return RecordingInfo.from_dict(resp.json())
 
     async def download(self, recording_id: str, local_path: str) -> None:
         async with self._http.stream("GET", f"{self._prefix}/recordings/{recording_id}/download") as resp:

@@ -36,7 +36,7 @@ class Action:
         obj = sandbox
         for part in parts:
             obj = getattr(obj, part)
-        return obj(*self.args, **self.kwargs)
+        return obj(*self.args, **self.kwargs)  # pyright: ignore[reportCallIssue]
 
     def __repr__(self) -> str:
         arg_str = ", ".join(
