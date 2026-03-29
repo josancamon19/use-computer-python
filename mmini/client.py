@@ -13,6 +13,7 @@ from mmini.sandbox import (
     Sandbox,
     SandboxType,
 )
+from mmini.tasks import TasksClient
 
 
 class Mmini:
@@ -27,6 +28,7 @@ class Mmini:
         self._http = httpx.Client(
             base_url=self._base_url, headers=headers, http2=True, timeout=60.0,
         )
+        self.tasks = TasksClient(self._http)
 
     def platforms(self) -> dict:
         """Discover available platforms, images, runtimes, and device types."""

@@ -17,10 +17,12 @@ from mmini.sandbox import (
     Sandbox,
     SandboxType,
 )
+from mmini.tasks import Task, TasksClient, TaskSummary
 
 __all__ = [
     "Action", "ActionResult", "ActResult", "AsyncIOSSandbox", "AsyncMacOSSandbox",
     "AsyncMmini", "AsyncSandbox", "CursorPosition", "DisplayInfo", "ExecResult",
     "IOSSandbox", "MacOSSandbox", "Mmini", "RecordingInfo", "Sandbox", "SandboxType",
+    "Task", "TaskSummary", "TasksClient",
     "parse_pyautogui", "parse_xdotool",
 ]
