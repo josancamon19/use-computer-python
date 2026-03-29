@@ -185,19 +185,11 @@ class AsyncSandbox:
         await self.upload_bytes(data, remote_path)
 
     async def upload_bytes(self, data: bytes, remote_path: str) -> None:
-        import asyncio
-        for attempt in range(3):
-            try:
-                resp = await self._http.put(
-                    f"{self._prefix}/files", params={"path": remote_path},
-                    content=data, headers={"Content-Type": "application/octet-stream"},
-                )
-                resp.raise_for_status()
-                return
-            except (httpx.ReadError, httpx.WriteError, httpx.ConnectError) as e:
-                if attempt == 2:
-                    raise
-                await asyncio.sleep(2 ** attempt)
+        resp = await self._http.put(
+            f"{self._prefix}/files", params={"path": remote_path},
+            content=data, headers={"Content-Type": "application/octet-stream"},
+        )
+        resp.raise_for_status()
 
     async def download_file(self, remote_path: str, local_path: str | Path) -> None:
         local_path = Path(local_path)
