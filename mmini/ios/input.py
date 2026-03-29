@@ -9,6 +9,7 @@ from mmini.models import ActionResult
 
 class Button(str, Enum):
     """Hardware buttons available on iOS simulators."""
+
     HOME = "home"
     LOCK = "lock"
     SIRI = "siri"
@@ -18,6 +19,7 @@ class Button(str, Enum):
 
 class Key(int, Enum):
     """Common HID keycodes for iOS simulator key presses."""
+
     RETURN = 40
     BACKSPACE = 42
     TAB = 43

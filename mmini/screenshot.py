@@ -21,7 +21,9 @@ class Screenshot:
         resp.raise_for_status()
         return resp.content
 
-    def take_compressed(self, format: str = "jpeg", quality: int = 80, scale: float | None = None) -> bytes:
+    def take_compressed(
+        self, format: str = "jpeg", quality: int = 80, scale: float | None = None
+    ) -> bytes:
         params: dict = {"format": format, "quality": quality}
         if scale is not None:
             params["scale"] = scale
@@ -36,7 +38,9 @@ class AsyncScreenshot:
         self._prefix = prefix
 
     async def take_full_screen(self, show_cursor: bool = False) -> bytes:
-        resp = await self._http.get(f"{self._prefix}/screenshot", params={"show_cursor": show_cursor})
+        resp = await self._http.get(
+            f"{self._prefix}/screenshot", params={"show_cursor": show_cursor}
+        )
         resp.raise_for_status()
         return resp.content
 
@@ -48,7 +52,9 @@ class AsyncScreenshot:
         resp.raise_for_status()
         return resp.content
 
-    async def take_compressed(self, format: str = "jpeg", quality: int = 80, scale: float | None = None) -> bytes:
+    async def take_compressed(
+        self, format: str = "jpeg", quality: int = 80, scale: float | None = None
+    ) -> bytes:
         params: dict = {"format": format, "quality": quality}
         if scale is not None:
             params["scale"] = scale

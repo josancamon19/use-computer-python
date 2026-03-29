@@ -24,14 +24,12 @@ async def main() -> None:
 
     # Create a note via osascript
     await sandbox.exec_ssh(
-        "osascript -e 'tell application \"Notes\" to make new note"
-        " with properties {name:\"Test Note\", body:\"Created by mmini SDK\"}'"
+        'osascript -e \'tell application "Notes" to make new note'
+        ' with properties {name:"Test Note", body:"Created by mmini SDK"}\''
     )
 
     # Set system preferences
-    await sandbox.exec_ssh(
-        "defaults write com.apple.dock autohide -bool true && killall Dock"
-    )
+    await sandbox.exec_ssh("defaults write com.apple.dock autohide -bool true && killall Dock")
 
     # Run any shell command
     _, output = await sandbox.exec_ssh("sw_vers -productVersion")

@@ -40,8 +40,7 @@ class Action:
 
     def __repr__(self) -> str:
         arg_str = ", ".join(
-            [repr(a) for a in self.args]
-            + [f"{k}={v!r}" for k, v in self.kwargs.items()]
+            [repr(a) for a in self.args] + [f"{k}={v!r}" for k, v in self.kwargs.items()]
         )
         return f"Action({self.method}({arg_str}))"
 
@@ -67,9 +66,7 @@ _PYAUTOGUI_MAP = {
     "screenshot": "screenshot.take_full_screen",
 }
 
-_PYAUTOGUI_RE = re.compile(
-    r"pyautogui\.(\w+)\(([^)]*)\)"
-)
+_PYAUTOGUI_RE = re.compile(r"pyautogui\.(\w+)\(([^)]*)\)")
 
 
 def _parse_py_args(raw: str) -> tuple[list, dict]:

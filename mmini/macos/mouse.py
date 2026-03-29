@@ -23,10 +23,18 @@ class Mouse:
         resp.raise_for_status()
         return ActionResult.from_dict(resp.json())
 
-    def drag(self, start_x: int, start_y: int, end_x: int, end_y: int, button: str = "left") -> ActionResult:
+    def drag(
+        self, start_x: int, start_y: int, end_x: int, end_y: int, button: str = "left"
+    ) -> ActionResult:
         resp = self._http.post(
             f"{self._prefix}/mouse/drag",
-            json={"startX": start_x, "startY": start_y, "endX": end_x, "endY": end_y, "button": button},
+            json={
+                "startX": start_x,
+                "startY": start_y,
+                "endX": end_x,
+                "endY": end_y,
+                "button": button,
+            },
         )
         resp.raise_for_status()
         return ActionResult.from_dict(resp.json())
@@ -50,7 +58,9 @@ class AsyncMouse:
         self._http = http
         self._prefix = prefix
 
-    async def click(self, x: int, y: int, button: str = "left", double: bool = False) -> ActionResult:
+    async def click(
+        self, x: int, y: int, button: str = "left", double: bool = False
+    ) -> ActionResult:
         resp = await self._http.post(
             f"{self._prefix}/mouse/click",
             json={"x": x, "y": y, "button": button, "double": double},
@@ -63,15 +73,25 @@ class AsyncMouse:
         resp.raise_for_status()
         return ActionResult.from_dict(resp.json())
 
-    async def drag(self, start_x: int, start_y: int, end_x: int, end_y: int, button: str = "left") -> ActionResult:
+    async def drag(
+        self, start_x: int, start_y: int, end_x: int, end_y: int, button: str = "left"
+    ) -> ActionResult:
         resp = await self._http.post(
             f"{self._prefix}/mouse/drag",
-            json={"startX": start_x, "startY": start_y, "endX": end_x, "endY": end_y, "button": button},
+            json={
+                "startX": start_x,
+                "startY": start_y,
+                "endX": end_x,
+                "endY": end_y,
+                "button": button,
+            },
         )
         resp.raise_for_status()
         return ActionResult.from_dict(resp.json())
 
-    async def scroll(self, x: int, y: int, direction: str = "down", amount: int = 3) -> ActionResult:
+    async def scroll(
+        self, x: int, y: int, direction: str = "down", amount: int = 3
+    ) -> ActionResult:
         resp = await self._http.post(
             f"{self._prefix}/mouse/scroll",
             json={"x": x, "y": y, "direction": direction, "amount": amount},

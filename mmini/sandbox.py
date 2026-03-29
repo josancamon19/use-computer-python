@@ -56,8 +56,10 @@ class Sandbox:
 
     def upload_bytes(self, data: bytes, remote_path: str) -> None:
         resp = self._http.put(
-            f"{self._prefix}/files", params={"path": remote_path},
-            content=data, headers={"Content-Type": "application/octet-stream"},
+            f"{self._prefix}/files",
+            params={"path": remote_path},
+            content=data,
+            headers={"Content-Type": "application/octet-stream"},
         )
         resp.raise_for_status()
 
@@ -84,17 +86,26 @@ class Sandbox:
 class MacOSSandbox(Sandbox):
     """macOS VM sandbox — full mouse, keyboard, SSH exec, VNC."""
 
-    def __init__(self, sandbox_id: str, http: httpx.Client, *, vnc_url: str = "", ssh_url: str = ""):
+    def __init__(
+        self, sandbox_id: str, http: httpx.Client, *, vnc_url: str = "", ssh_url: str = ""
+    ):
         super().__init__(sandbox_id, SandboxType.MACOS, http, vnc_url=vnc_url, ssh_url=ssh_url)
         self.mouse = Mouse(http, self._prefix)
         self.keyboard = Keyboard(http, self._prefix)
 
     def act(
-        self, action: dict, screenshot_after: bool = True, screenshot_delay_ms: int = 100,
+        self,
+        action: dict,
+        screenshot_after: bool = True,
+        screenshot_delay_ms: int = 100,
     ) -> ActResult:
         resp = self._http.post(
             f"{self._prefix}/act",
-            json={"action": action, "screenshot_after": screenshot_after, "screenshot_delay_ms": screenshot_delay_ms},
+            json={
+                "action": action,
+                "screenshot_after": screenshot_after,
+                "screenshot_delay_ms": screenshot_delay_ms,
+            },
         )
         resp.raise_for_status()
         if screenshot_after and resp.headers.get("content-type", "").startswith("image/"):
@@ -186,8 +197,10 @@ class AsyncSandbox:
 
     async def upload_bytes(self, data: bytes, remote_path: str) -> None:
         resp = await self._http.put(
-            f"{self._prefix}/files", params={"path": remote_path},
-            content=data, headers={"Content-Type": "application/octet-stream"},
+            f"{self._prefix}/files",
+            params={"path": remote_path},
+            content=data,
+            headers={"Content-Type": "application/octet-stream"},
         )
         resp.raise_for_status()
 
@@ -214,17 +227,26 @@ class AsyncSandbox:
 class AsyncMacOSSandbox(AsyncSandbox):
     """Async macOS VM sandbox."""
 
-    def __init__(self, sandbox_id: str, http: httpx.AsyncClient, *, vnc_url: str = "", ssh_url: str = ""):
+    def __init__(
+        self, sandbox_id: str, http: httpx.AsyncClient, *, vnc_url: str = "", ssh_url: str = ""
+    ):
         super().__init__(sandbox_id, SandboxType.MACOS, http, vnc_url=vnc_url, ssh_url=ssh_url)
         self.mouse = AsyncMouse(http, self._prefix)
         self.keyboard = AsyncKeyboard(http, self._prefix)
 
     async def act(
-        self, action: dict, screenshot_after: bool = True, screenshot_delay_ms: int = 100,
+        self,
+        action: dict,
+        screenshot_after: bool = True,
+        screenshot_delay_ms: int = 100,
     ) -> ActResult:
         resp = await self._http.post(
             f"{self._prefix}/act",
-            json={"action": action, "screenshot_after": screenshot_after, "screenshot_delay_ms": screenshot_delay_ms},
+            json={
+                "action": action,
+                "screenshot_after": screenshot_after,
+                "screenshot_delay_ms": screenshot_delay_ms,
+            },
         )
         resp.raise_for_status()
         if screenshot_after and resp.headers.get("content-type", "").startswith("image/"):
@@ -232,7 +254,9 @@ class AsyncMacOSSandbox(AsyncSandbox):
         return ActResult(data=resp.json())
 
     async def exec_ssh(self, command: str, timeout: int = 120) -> ExecResult:
-        resp = await self._http.post(f"{self._prefix}/exec", json={"command": command}, timeout=timeout)
+        resp = await self._http.post(
+            f"{self._prefix}/exec", json={"command": command}, timeout=timeout
+        )
         resp.raise_for_status()
         return ExecResult.from_dict(resp.json())
 

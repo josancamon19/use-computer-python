@@ -101,7 +101,11 @@ class TasksClient:
         )
 
     def export_harbor(
-        self, task_id: str, output_dir: str | Path, *, overwrite: bool = False,
+        self,
+        task_id: str,
+        output_dir: str | Path,
+        *,
+        overwrite: bool = False,
     ) -> Path:
         """Export a single task as a Harbor task directory.
 
@@ -116,13 +120,13 @@ def _build_test_sh(task: Task) -> str:
     """Generate test.sh from the task's grader or grading candidates."""
     lines = [
         "#!/bin/bash",
-        "# Auto-generated grading script",
-        "set -e",
+        "# Auto-generated grading script — never use set -e (must always write reward file)",
         "",
-        '# Detect path prefix (macOS SIP blocks /tests, so mmini uses /tmp/harbor)',
+        "# Detect path prefix (macOS SIP blocks /tests, so mmini uses /tmp/harbor)",
         'PREFIX=""',
         '[ -d "/tmp/harbor/logs" ] && PREFIX="/tmp/harbor"',
         'REWARD="${PREFIX}/logs/verifier/reward.txt"',
+        'GRADER_LOG="${PREFIX}/logs/verifier/grader.log"',
         "",
     ]
 
@@ -131,21 +135,25 @@ def _build_test_sh(task: Task) -> str:
         escaped = task.grader.replace("'", "'\\''")
         if task.platform == "ios":
             lines.append("# iOS grader — runs on host, queries sandbox API")
-        lines.append(f'if bash -c \'{escaped}\' 2>/dev/null | grep -qi "true"; then')
+        lines.append(f"GRADER_OUTPUT=$(bash -c '{escaped}' 2>&1)")
+        lines.append('echo "$GRADER_OUTPUT" >> "$GRADER_LOG"')
+        lines.append('if echo "$GRADER_OUTPUT" | grep -qi "true"; then')
         lines.append('  echo "1" > "$REWARD"')
         lines.append('  echo "Score: 1"')
         lines.append("  exit 0")
         lines.append("fi")
         lines.append("")
         lines.append('echo "0" > "$REWARD"')
-        lines.append('echo "Score: 0"')
+        lines.append('echo "Score: 0 — grader output: $GRADER_OUTPUT" | head -c 500')
     elif task.grading_candidates:
         # Fall back to candidates with score 100
         checks = [gc["command"] for gc in task.grading_candidates if gc.get("score", 0) == 100]
         for i, cmd in enumerate(checks):
             escaped = cmd.replace("'", "'\\''")
             lines.append(f"# Check {i + 1}")
-            lines.append(f"if bash -c '{escaped}' 2>/dev/null | grep -qi 'true'; then")
+            lines.append(f"CHECK_OUTPUT=$(bash -c '{escaped}' 2>&1)")
+            lines.append(f'echo "check {i + 1}: $CHECK_OUTPUT" >> "$GRADER_LOG"')
+            lines.append("if echo \"$CHECK_OUTPUT\" | grep -qi 'true'; then")
             lines.append('  echo "1" > "$REWARD"')
             lines.append('  echo "Score: 1"')
             lines.append("  exit 0")
@@ -164,18 +172,13 @@ def _build_test_sh(task: Task) -> str:
 def _build_pre_command_sh(task: Task) -> str:
     """Generate pre_command.sh from setup commands."""
     lines = ["#!/bin/bash"]
-    if task.platform != "ios":
-        # macOS: dismiss crash dialogs, standard env init
-        lines.append(
-            '# Dismiss crash dialogs\n'
-            'find /Library/Logs/DiagnosticReports -type f -name "panic*.panic"'
-            ' -mmin -20 2>/dev/null | grep -q . && osascript -e '
-            "'tell application \"System Events\" to click at {456,349}' && "
-            'rm -rf /Library/Logs/DiagnosticReports/*.panic\n'
-            'true'
-        )
     for cmd in task.setup_commands:
-        lines.append(cmd)
+        # defaults delete fails on fresh VMs where the key was never set —
+        # the clean state is already the desired state, so skip these
+        if "defaults delete" in cmd:
+            lines.append(f"# skipped (fresh VM already in expected state): {cmd}")
+        else:
+            lines.append(cmd)
     lines.append("")
     return "\n".join(lines) + "\n"
 
@@ -226,7 +229,7 @@ def task_to_harbor(task: Task, output_root: Path, *, overwrite: bool = False) ->
         f'category = "desktop-automation"\n'
         f"tags = {json.dumps(tags)}\n"
         f'platform = "{task.platform}"\n'
-        f'runnable = {"true" if task.runnable else "false"}\n'
+        f"runnable = {'true' if task.runnable else 'false'}\n"
         "\n"
         "[verifier]\n"
         "timeout_sec = 1800\n"

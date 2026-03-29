@@ -26,7 +26,9 @@ class Mmini:
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
         self._http = httpx.Client(
-            base_url=self._base_url, headers=headers, http2=True, timeout=60.0,
+            base_url=self._base_url,
+            headers=headers,
+            timeout=60.0,
         )
         self.tasks = TasksClient(self._http)
 
@@ -39,7 +41,9 @@ class Mmini:
     @overload
     def create(self, *, type: Literal["macos"] = ..., wait: bool = ...) -> MacOSSandbox: ...
     @overload
-    def create(self, *, type: Literal["ios"], device_type: str = ..., runtime: str = ...) -> IOSSandbox: ...
+    def create(
+        self, *, type: Literal["ios"], device_type: str = ..., runtime: str = ...
+    ) -> IOSSandbox: ...
 
     def create(
         self,
@@ -73,7 +77,8 @@ class Mmini:
         if type == "ios":
             return IOSSandbox(sandbox_id=sid, http=self._http)
         return MacOSSandbox(
-            sandbox_id=sid, http=self._http,
+            sandbox_id=sid,
+            http=self._http,
             vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
             ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
         )
@@ -87,7 +92,8 @@ class Mmini:
         if sb_type == SandboxType.IOS:
             return IOSSandbox(sandbox_id=data["sandbox_id"], http=self._http)
         return MacOSSandbox(
-            sandbox_id=data["sandbox_id"], http=self._http,
+            sandbox_id=data["sandbox_id"],
+            http=self._http,
             vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
             ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
         )
@@ -111,7 +117,9 @@ class AsyncMmini:
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
         self._http = httpx.AsyncClient(
-            base_url=self._base_url, headers=headers, http2=True, timeout=60.0,
+            base_url=self._base_url,
+            headers=headers,
+            timeout=60.0,
         )
 
     async def platforms(self) -> dict:
@@ -121,9 +129,13 @@ class AsyncMmini:
         return resp.json()
 
     @overload
-    async def create(self, *, type: Literal["macos"] = ..., wait: bool = ...) -> AsyncMacOSSandbox: ...
+    async def create(
+        self, *, type: Literal["macos"] = ..., wait: bool = ...
+    ) -> AsyncMacOSSandbox: ...
     @overload
-    async def create(self, *, type: Literal["ios"], device_type: str = ..., runtime: str = ...) -> AsyncIOSSandbox: ...
+    async def create(
+        self, *, type: Literal["ios"], device_type: str = ..., runtime: str = ...
+    ) -> AsyncIOSSandbox: ...
 
     async def create(
         self,
@@ -157,7 +169,8 @@ class AsyncMmini:
         if type == "ios":
             return AsyncIOSSandbox(sandbox_id=sid, http=self._http)
         return AsyncMacOSSandbox(
-            sandbox_id=sid, http=self._http,
+            sandbox_id=sid,
+            http=self._http,
             vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
             ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
         )
@@ -171,7 +184,8 @@ class AsyncMmini:
         if sb_type == SandboxType.IOS:
             return AsyncIOSSandbox(sandbox_id=data["sandbox_id"], http=self._http)
         return AsyncMacOSSandbox(
-            sandbox_id=data["sandbox_id"], http=self._http,
+            sandbox_id=data["sandbox_id"],
+            http=self._http,
             vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
             ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
         )

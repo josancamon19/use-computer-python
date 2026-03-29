@@ -74,7 +74,9 @@ class AsyncRecording:
         return RecordingInfo.from_dict(resp.json())
 
     async def download(self, recording_id: str, local_path: str) -> None:
-        async with self._http.stream("GET", f"{self._prefix}/recordings/{recording_id}/download") as resp:
+        async with self._http.stream(
+            "GET", f"{self._prefix}/recordings/{recording_id}/download"
+        ) as resp:
             resp.raise_for_status()
             with open(local_path, "wb") as f:
                 async for chunk in resp.aiter_bytes(chunk_size=65536):

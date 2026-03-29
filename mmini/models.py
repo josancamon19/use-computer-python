@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 
 @dataclass
 class ActionResult:
     """Result from a mouse/keyboard/tap/swipe action."""
+
     status: str = "ok"
 
     @classmethod
@@ -74,5 +74,6 @@ class ExecResult:
 @dataclass
 class ActResult:
     """Result from a compound act() call."""
+
     screenshot: bytes | None = None
     data: dict = field(default_factory=dict)
