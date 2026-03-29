@@ -106,17 +106,14 @@ class MacOSSandbox(Sandbox):
         resp.raise_for_status()
         return ExecResult.from_dict(resp.json())
 
-    def upload_dir(self, local_dir: str | Path, remote_dir: str, exclude: str | None = None) -> None:
+    def upload_dir(self, local_dir: str | Path, remote_dir: str) -> None:
         import io
         import tarfile
 
         local_dir = Path(local_dir)
-        exclude_path = local_dir / exclude if exclude else None
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
             for item in local_dir.rglob("*"):
-                if exclude_path and (item == exclude_path or exclude_path in item.parents):
-                    continue
                 tar.add(str(item), arcname=str(item.relative_to(local_dir)))
         self.upload_bytes(buf.getvalue(), f"/tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz")
         self.exec_ssh(
@@ -247,17 +244,14 @@ class AsyncMacOSSandbox(AsyncSandbox):
         resp.raise_for_status()
         return ExecResult.from_dict(resp.json())
 
-    async def upload_dir(self, local_dir: str | Path, remote_dir: str, exclude: str | None = None) -> None:
+    async def upload_dir(self, local_dir: str | Path, remote_dir: str) -> None:
         import io
         import tarfile
 
         local_dir = Path(local_dir)
-        exclude_path = local_dir / exclude if exclude else None
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
             for item in local_dir.rglob("*"):
-                if exclude_path and (item == exclude_path or exclude_path in item.parents):
-                    continue
                 tar.add(str(item), arcname=str(item.relative_to(local_dir)))
         await self.upload_bytes(buf.getvalue(), f"/tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz")
         await self.exec_ssh(
