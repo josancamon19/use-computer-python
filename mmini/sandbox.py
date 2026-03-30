@@ -1,9 +1,46 @@
 from __future__ import annotations
 
+import asyncio
+import time
 from enum import Enum
 from pathlib import Path
 
 import httpx
+
+_RETRYABLE = (httpx.ReadTimeout, httpx.ConnectError, httpx.RemoteProtocolError)
+_RETRY_STATUS = {502, 503, 504}
+_MAX_RETRIES = 2
+_RETRY_DELAY = 1.0
+
+
+def _should_retry(exc: Exception) -> bool:
+    if isinstance(exc, _RETRYABLE):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in _RETRY_STATUS:
+        return True
+    return False
+
+
+def _retry_sync(fn, *args, **kwargs):
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as e:
+            if attempt < _MAX_RETRIES and _should_retry(e):
+                time.sleep(_RETRY_DELAY)
+                continue
+            raise
+
+
+async def _retry_async(fn, *args, **kwargs):
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            return await fn(*args, **kwargs)
+        except Exception as e:
+            if attempt < _MAX_RETRIES and _should_retry(e):
+                await asyncio.sleep(_RETRY_DELAY)
+                continue
+            raise
 
 from mmini.display import AsyncDisplay, Display
 from mmini.ios.apps import Apps, AsyncApps
@@ -116,9 +153,11 @@ class MacOSSandbox(Sandbox):
         return ActResult(data=resp.json())
 
     def exec_ssh(self, command: str, timeout: int = 120) -> ExecResult:
-        resp = self._http.post(f"{self._prefix}/exec", json={"command": command}, timeout=timeout)
-        resp.raise_for_status()
-        return ExecResult.from_dict(resp.json())
+        def _do():
+            resp = self._http.post(f"{self._prefix}/exec", json={"command": command}, timeout=timeout)
+            resp.raise_for_status()
+            return ExecResult.from_dict(resp.json())
+        return _retry_sync(_do)
 
     def upload_dir(self, local_dir: str | Path, remote_dir: str) -> None:
         import io
@@ -252,16 +291,13 @@ class AsyncMacOSSandbox(AsyncSandbox):
         return ActResult(data=resp.json())
 
     async def exec_ssh(self, command: str, timeout: int = 120) -> ExecResult:
-        resp = await self._http.post(
-            f"{self._prefix}/exec", json={"command": command}, timeout=timeout
-        )
-        if resp.status_code >= 400:
-            body = resp.text[:1000] if resp.text else ""
-            raise RuntimeError(
-                f"exec_ssh failed: {resp.status_code} {resp.reason_phrase} "
-                f"url={resp.url} body={body}"
+        async def _do():
+            resp = await self._http.post(
+                f"{self._prefix}/exec", json={"command": command}, timeout=timeout
             )
-        return ExecResult.from_dict(resp.json())
+            resp.raise_for_status()
+            return ExecResult.from_dict(resp.json())
+        return await _retry_async(_do)
 
     async def upload_dir(self, local_dir: str | Path, remote_dir: str) -> None:
         import io
