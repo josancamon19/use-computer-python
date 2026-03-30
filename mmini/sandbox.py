@@ -8,9 +8,9 @@ from pathlib import Path
 import httpx
 
 _RETRYABLE = (httpx.ReadTimeout, httpx.ConnectError, httpx.RemoteProtocolError)
-_RETRY_STATUS = {502, 503, 504}
-_MAX_RETRIES = 2
-_RETRY_DELAY = 1.0
+_RETRY_STATUS = {500, 502, 503, 504}
+_MAX_RETRIES = 3
+_RETRY_DELAY = 2.0
 
 
 def _should_retry(exc: Exception) -> bool:
@@ -230,13 +230,15 @@ class AsyncSandbox:
         await self.upload_bytes(data, remote_path)
 
     async def upload_bytes(self, data: bytes, remote_path: str) -> None:
-        resp = await self._http.put(
-            f"{self._prefix}/files",
-            params={"path": remote_path},
-            content=data,
-            headers={"Content-Type": "application/octet-stream"},
-        )
-        resp.raise_for_status()
+        async def _do():
+            resp = await self._http.put(
+                f"{self._prefix}/files",
+                params={"path": remote_path},
+                content=data,
+                headers={"Content-Type": "application/octet-stream"},
+            )
+            resp.raise_for_status()
+        await _retry_async(_do)
 
     async def download_file(self, remote_path: str, local_path: str | Path) -> None:
         local_path = Path(local_path)
