@@ -87,9 +87,12 @@ class MacOSSandbox(Sandbox):
     """macOS VM sandbox — full mouse, keyboard, SSH exec, VNC."""
 
     def __init__(
-        self, sandbox_id: str, http: httpx.Client, *, vnc_url: str = "", ssh_url: str = ""
+        self, sandbox_id: str, http: httpx.Client, *, vnc_url: str = "", ssh_url: str = "",
+        vm_ip: str = "", host: str = "",
     ):
         super().__init__(sandbox_id, SandboxType.MACOS, http, vnc_url=vnc_url, ssh_url=ssh_url)
+        self.vm_ip = vm_ip
+        self.host = host
         self.mouse = Mouse(http, self._prefix)
         self.keyboard = Keyboard(http, self._prefix)
 
@@ -128,8 +131,8 @@ class MacOSSandbox(Sandbox):
                 tar.add(str(item), arcname=str(item.relative_to(local_dir)))
         self.upload_bytes(buf.getvalue(), f"/tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz")
         self.exec_ssh(
-            f"mkdir -p {remote_dir}"
-            f" && tar xzf /tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz -C {remote_dir}"
+            f'mkdir -p "{remote_dir}"'
+            f' && tar xzf /tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz -C "{remote_dir}"'
             f" && rm -f /tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz"
         )
 
@@ -140,7 +143,7 @@ class MacOSSandbox(Sandbox):
         local_dir = Path(local_dir)
         local_dir.mkdir(parents=True, exist_ok=True)
         tar_remote = f"/tmp/_mmini_download_{self.sandbox_id[-8:]}.tar.gz"
-        self.exec_ssh(f"tar czf {tar_remote} -C {remote_dir} . 2>/dev/null; true")
+        self.exec_ssh(f'tar czf {tar_remote} -C "{remote_dir}" . 2>/dev/null; true')
         resp = self._http.get(f"{self._prefix}/files", params={"path": tar_remote})
         if resp.status_code != 200 or len(resp.content) == 0:
             return
@@ -228,9 +231,12 @@ class AsyncMacOSSandbox(AsyncSandbox):
     """Async macOS VM sandbox."""
 
     def __init__(
-        self, sandbox_id: str, http: httpx.AsyncClient, *, vnc_url: str = "", ssh_url: str = ""
+        self, sandbox_id: str, http: httpx.AsyncClient, *, vnc_url: str = "", ssh_url: str = "",
+        vm_ip: str = "", host: str = "",
     ):
         super().__init__(sandbox_id, SandboxType.MACOS, http, vnc_url=vnc_url, ssh_url=ssh_url)
+        self.vm_ip = vm_ip
+        self.host = host
         self.mouse = AsyncMouse(http, self._prefix)
         self.keyboard = AsyncKeyboard(http, self._prefix)
 
@@ -271,8 +277,8 @@ class AsyncMacOSSandbox(AsyncSandbox):
                 tar.add(str(item), arcname=str(item.relative_to(local_dir)))
         await self.upload_bytes(buf.getvalue(), f"/tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz")
         await self.exec_ssh(
-            f"mkdir -p {remote_dir} && tar xzf /tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz"
-            f" -C {remote_dir} && rm -f /tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz"
+            f'mkdir -p "{remote_dir}" && tar xzf /tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz'
+            f' -C "{remote_dir}" && rm -f /tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz'
         )
 
     async def download_dir(self, remote_dir: str, local_dir: str | Path) -> None:
@@ -282,7 +288,7 @@ class AsyncMacOSSandbox(AsyncSandbox):
         local_dir = Path(local_dir)
         local_dir.mkdir(parents=True, exist_ok=True)
         tar_remote = f"/tmp/_mmini_download_{self.sandbox_id[-8:]}.tar.gz"
-        await self.exec_ssh(f"tar czf {tar_remote} -C {remote_dir} . 2>/dev/null; true")
+        await self.exec_ssh(f'tar czf {tar_remote} -C "{remote_dir}" . 2>/dev/null; true')
         resp = await self._http.get(f"{self._prefix}/files", params={"path": tar_remote})
         if resp.status_code != 200 or len(resp.content) == 0:
             return
