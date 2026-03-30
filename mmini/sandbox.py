@@ -129,30 +129,22 @@ class MacOSSandbox(Sandbox):
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
             for item in local_dir.rglob("*"):
                 tar.add(str(item), arcname=str(item.relative_to(local_dir)))
-        self.upload_bytes(buf.getvalue(), f"/tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz")
-        self.exec_ssh(
-            f'mkdir -p "{remote_dir}"'
-            f' && tar xzf /tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz -C "{remote_dir}"'
-            f" && rm -f /tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz"
-        )
+        tmp = f"/tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz"
+        self.upload_bytes(buf.getvalue(), tmp)
+        self.exec_ssh(f'mkdir -p "{remote_dir}" && tar xzf {tmp} -C "{remote_dir}" && rm -f {tmp}')
 
     def download_dir(self, remote_dir: str, local_dir: str | Path) -> None:
-        import io
-        import tarfile
-
         local_dir = Path(local_dir)
         local_dir.mkdir(parents=True, exist_ok=True)
-        tar_remote = f"/tmp/_mmini_download_{self.sandbox_id[-8:]}.tar.gz"
-        self.exec_ssh(f'tar czf {tar_remote} -C "{remote_dir}" . 2>/dev/null; true')
-        resp = self._http.get(f"{self._prefix}/files", params={"path": tar_remote})
-        if resp.status_code != 200 or len(resp.content) == 0:
-            return
-        try:
-            with tarfile.open(fileobj=io.BytesIO(resp.content), mode="r:gz") as tar:
-                tar.extractall(path=str(local_dir))
-        except tarfile.ReadError:
-            return
-        self.exec_ssh(f"rm -f {tar_remote}")
+        # List files via exec, then download each
+        result = self.exec_ssh(f'find "{remote_dir}" -type f')
+        for line in result.stdout.strip().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            rel = line[len(remote_dir) :].lstrip("/")
+            local_path = local_dir / rel
+            self.download_file(line, local_path)
 
 
 class IOSSandbox(Sandbox):
@@ -280,29 +272,23 @@ class AsyncMacOSSandbox(AsyncSandbox):
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
             for item in local_dir.rglob("*"):
                 tar.add(str(item), arcname=str(item.relative_to(local_dir)))
-        await self.upload_bytes(buf.getvalue(), f"/tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz")
-        await self.exec_ssh(
-            f'mkdir -p "{remote_dir}" && tar xzf /tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz'
-            f' -C "{remote_dir}" && rm -f /tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz'
-        )
+        tmp = f"/tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz"
+        await self.upload_bytes(buf.getvalue(), tmp)
+        cmd = f'mkdir -p "{remote_dir}" && tar xzf {tmp} -C "{remote_dir}" && rm -f {tmp}'
+        await self.exec_ssh(cmd)
 
     async def download_dir(self, remote_dir: str, local_dir: str | Path) -> None:
-        import io
-        import tarfile
-
         local_dir = Path(local_dir)
         local_dir.mkdir(parents=True, exist_ok=True)
-        tar_remote = f"/tmp/_mmini_download_{self.sandbox_id[-8:]}.tar.gz"
-        await self.exec_ssh(f'tar czf {tar_remote} -C "{remote_dir}" . 2>/dev/null; true')
-        resp = await self._http.get(f"{self._prefix}/files", params={"path": tar_remote})
-        if resp.status_code != 200 or len(resp.content) == 0:
-            return
-        try:
-            with tarfile.open(fileobj=io.BytesIO(resp.content), mode="r:gz") as tar:
-                tar.extractall(path=str(local_dir))
-        except tarfile.ReadError:
-            return
-        await self.exec_ssh(f"rm -f {tar_remote}")
+        # List files via exec, then download each
+        result = await self.exec_ssh(f'find "{remote_dir}" -type f')
+        for line in result.stdout.strip().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            rel = line[len(remote_dir) :].lstrip("/")
+            local_path = local_dir / rel
+            await self.download_file(line, local_path)
 
 
 class AsyncIOSSandbox(AsyncSandbox):

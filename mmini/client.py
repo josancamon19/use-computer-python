@@ -172,6 +172,7 @@ class Mmini:
         *,
         type: str = "macos",
         wait: bool = False,
+        host: str = "",
         device_type: str = "",
         runtime: str = "",
         host: str = "",
@@ -181,11 +182,14 @@ class Mmini:
         Args:
             type: "macos" (default) or "ios".
             wait: macOS only — if True, gateway retries up to 2min when pool is empty.
+            host: macOS only — claim a VM on a specific host (e.g. "mm001").
             device_type: iOS only — simulator device type identifier.
             runtime: iOS only — simulator runtime identifier.
             host: Pin sandbox to a specific host machine.
         """
         body: dict = {"type": type}
+        if host:
+            body["host"] = host
         if type == "ios":
             if device_type:
                 body["device_type"] = device_type
@@ -209,6 +213,8 @@ class Mmini:
             sandbox_id=sid,
             http=self._http,
             vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
+            vm_ip=data.get("vm_ip", ""),
+            host=data.get("host", ""),
             ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
             vm_ip=data.get("vm_ip", ""),
             host=data.get("host", ""),
@@ -274,6 +280,7 @@ class AsyncMmini:
         *,
         type: str = "macos",
         wait: bool = False,
+        host: str = "",
         device_type: str = "",
         runtime: str = "",
         host: str = "",
@@ -283,11 +290,14 @@ class AsyncMmini:
         Args:
             type: "macos" (default) or "ios".
             wait: macOS only — if True, gateway retries up to 2min when pool is empty.
+            host: macOS only — claim a VM on a specific host (e.g. "mm001").
             device_type: iOS only — simulator device type identifier.
             runtime: iOS only — simulator runtime identifier.
             host: Pin sandbox to a specific host machine.
         """
         body: dict = {"type": type}
+        if host:
+            body["host"] = host
         if type == "ios":
             if device_type:
                 body["device_type"] = device_type
