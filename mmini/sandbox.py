@@ -263,7 +263,12 @@ class AsyncMacOSSandbox(AsyncSandbox):
         resp = await self._http.post(
             f"{self._prefix}/exec", json={"command": command}, timeout=timeout
         )
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            body = resp.text[:1000] if resp.text else ""
+            raise RuntimeError(
+                f"exec_ssh failed: {resp.status_code} {resp.reason_phrase} "
+                f"url={resp.url} body={body}"
+            )
         return ExecResult.from_dict(resp.json())
 
     async def upload_dir(self, local_dir: str | Path, remote_dir: str) -> None:

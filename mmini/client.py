@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import asyncio
+import logging
+import time
 from typing import Literal, overload
 
 import httpx
@@ -15,6 +18,98 @@ from mmini.sandbox import (
 )
 from mmini.tasks import TasksClient
 
+_log = logging.getLogger(__name__)
+_RETRY_STATUSES = frozenset({500, 502, 503, 504, 529})
+_NO_RETRY_PATTERNS = ("not found", "connection refused")
+_MAX_RETRIES = 3
+_RETRY_DELAY = 2.0
+
+
+def _is_retryable(body: str) -> bool:
+    """Check if the error body indicates a retryable (transient) failure."""
+    lower = body.lower()
+    return not any(p in lower for p in _NO_RETRY_PATTERNS)
+
+
+class _RetryTransport(httpx.BaseTransport):
+    """Wraps an httpx sync transport to retry on transient server errors."""
+
+    def __init__(
+        self,
+        transport: httpx.BaseTransport,
+        max_retries: int = _MAX_RETRIES,
+        delay: float = _RETRY_DELAY,
+    ):
+        self._transport = transport
+        self._max_retries = max_retries
+        self._delay = delay
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        resp = None
+        for attempt in range(self._max_retries + 1):
+            resp = self._transport.handle_request(request)
+            if resp.status_code not in _RETRY_STATUSES or attempt == self._max_retries:
+                return resp
+            body = ""
+            try:
+                resp.read()
+                body = resp.text[:500]
+            except Exception:
+                pass
+            if not _is_retryable(body):
+                return resp
+            _log.warning(
+                "retry %d/%d: %s %s → %d %s",
+                attempt + 1, self._max_retries, request.method, request.url,
+                resp.status_code, body,
+            )
+            resp.close()
+            time.sleep(self._delay)
+        return resp  # type: ignore[return-value]
+
+    def close(self) -> None:
+        self._transport.close()
+
+
+class _AsyncRetryTransport(httpx.AsyncBaseTransport):
+    """Wraps an httpx async transport to retry on transient server errors."""
+
+    def __init__(
+        self,
+        transport: httpx.AsyncBaseTransport,
+        max_retries: int = _MAX_RETRIES,
+        delay: float = _RETRY_DELAY,
+    ):
+        self._transport = transport
+        self._max_retries = max_retries
+        self._delay = delay
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        resp = None
+        for attempt in range(self._max_retries + 1):
+            resp = await self._transport.handle_async_request(request)
+            if resp.status_code not in _RETRY_STATUSES or attempt == self._max_retries:
+                return resp
+            body = ""
+            try:
+                await resp.aread()
+                body = resp.text[:500]
+            except Exception:
+                pass
+            if not _is_retryable(body):
+                return resp
+            _log.warning(
+                "retry %d/%d: %s %s → %d %s",
+                attempt + 1, self._max_retries, request.method, request.url,
+                resp.status_code, body,
+            )
+            await resp.aclose()
+            await asyncio.sleep(self._delay)
+        return resp  # type: ignore[return-value]
+
+    async def aclose(self) -> None:
+        await self._transport.aclose()
+
 
 class Mmini:
     """mmini client. Creates and manages macOS and iOS sandboxes."""
@@ -29,6 +124,7 @@ class Mmini:
             base_url=self._base_url,
             headers=headers,
             timeout=60.0,
+            transport=_RetryTransport(httpx.HTTPTransport()),
         )
         self.tasks = TasksClient(self._http)
 
@@ -39,7 +135,7 @@ class Mmini:
         return resp.json()
 
     @overload
-    def create(self, *, type: Literal["macos"] = ..., wait: bool = ...) -> MacOSSandbox: ...
+    def create(self, *, type: Literal["macos"] = ..., wait: bool = ..., host: str = ...) -> MacOSSandbox: ...
     @overload
     def create(
         self, *, type: Literal["ios"], device_type: str = ..., runtime: str = ...
@@ -52,6 +148,7 @@ class Mmini:
         wait: bool = False,
         device_type: str = "",
         runtime: str = "",
+        host: str = "",
     ) -> MacOSSandbox | IOSSandbox:
         """Create a new sandbox.
 
@@ -60,6 +157,7 @@ class Mmini:
             wait: macOS only — if True, gateway retries up to 2min when pool is empty.
             device_type: iOS only — simulator device type identifier.
             runtime: iOS only — simulator runtime identifier.
+            host: Pin sandbox to a specific host machine.
         """
         body: dict = {"type": type}
         if type == "ios":
@@ -67,6 +165,8 @@ class Mmini:
                 body["device_type"] = device_type
             if runtime:
                 body["runtime"] = runtime
+        if host:
+            body["host"] = host
         params = {"wait": "true"} if wait else {}
 
         resp = self._http.post("/v1/sandboxes", json=body, params=params)
@@ -81,6 +181,8 @@ class Mmini:
             http=self._http,
             vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
             ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
+            vm_ip=data.get("vm_ip", ""),
+            host=data.get("host", ""),
         )
 
     def get(self, sandbox_id: str) -> Sandbox:
@@ -120,6 +222,7 @@ class AsyncMmini:
             base_url=self._base_url,
             headers=headers,
             timeout=60.0,
+            transport=_AsyncRetryTransport(httpx.AsyncHTTPTransport()),
         )
 
     async def platforms(self) -> dict:
@@ -130,7 +233,7 @@ class AsyncMmini:
 
     @overload
     async def create(
-        self, *, type: Literal["macos"] = ..., wait: bool = ...
+        self, *, type: Literal["macos"] = ..., wait: bool = ..., host: str = ...
     ) -> AsyncMacOSSandbox: ...
     @overload
     async def create(
@@ -144,6 +247,7 @@ class AsyncMmini:
         wait: bool = False,
         device_type: str = "",
         runtime: str = "",
+        host: str = "",
     ) -> AsyncMacOSSandbox | AsyncIOSSandbox:
         """Create a new sandbox.
 
@@ -152,6 +256,7 @@ class AsyncMmini:
             wait: macOS only — if True, gateway retries up to 2min when pool is empty.
             device_type: iOS only — simulator device type identifier.
             runtime: iOS only — simulator runtime identifier.
+            host: Pin sandbox to a specific host machine.
         """
         body: dict = {"type": type}
         if type == "ios":
@@ -159,6 +264,8 @@ class AsyncMmini:
                 body["device_type"] = device_type
             if runtime:
                 body["runtime"] = runtime
+        if host:
+            body["host"] = host
         params = {"wait": "true"} if wait else {}
 
         resp = await self._http.post("/v1/sandboxes", json=body, params=params)
@@ -173,6 +280,8 @@ class AsyncMmini:
             http=self._http,
             vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
             ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
+            vm_ip=data.get("vm_ip", ""),
+            host=data.get("host", ""),
         )
 
     async def get(self, sandbox_id: str) -> AsyncSandbox:
