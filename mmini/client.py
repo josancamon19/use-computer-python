@@ -45,9 +45,22 @@ class _RetryTransport(httpx.BaseTransport):
         self._delay = delay
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
+        last_exc: Exception | None = None
         resp = None
         for attempt in range(self._max_retries + 1):
-            resp = self._transport.handle_request(request)
+            try:
+                resp = self._transport.handle_request(request)
+            except (httpx.TimeoutException, httpx.ConnectError) as exc:
+                last_exc = exc
+                if attempt == self._max_retries:
+                    raise
+                _log.warning(
+                    "retry %d/%d: %s %s → %s",
+                    attempt + 1, self._max_retries, request.method, request.url,
+                    type(exc).__name__,
+                )
+                time.sleep(self._delay)
+                continue
             if resp.status_code not in _RETRY_STATUSES or attempt == self._max_retries:
                 return resp
             body = ""
@@ -85,9 +98,22 @@ class _AsyncRetryTransport(httpx.AsyncBaseTransport):
         self._delay = delay
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        last_exc: Exception | None = None
         resp = None
         for attempt in range(self._max_retries + 1):
-            resp = await self._transport.handle_async_request(request)
+            try:
+                resp = await self._transport.handle_async_request(request)
+            except (httpx.TimeoutException, httpx.ConnectError) as exc:
+                last_exc = exc
+                if attempt == self._max_retries:
+                    raise
+                _log.warning(
+                    "retry %d/%d: %s %s → %s",
+                    attempt + 1, self._max_retries, request.method, request.url,
+                    type(exc).__name__,
+                )
+                await asyncio.sleep(self._delay)
+                continue
             if resp.status_code not in _RETRY_STATUSES or attempt == self._max_retries:
                 return resp
             body = ""
@@ -169,7 +195,10 @@ class Mmini:
             body["host"] = host
         params = {"wait": "true"} if wait else {}
 
-        resp = self._http.post("/v1/sandboxes", json=body, params=params)
+        create_timeout = 180.0 if wait else 60.0
+        resp = self._http.post(
+            "/v1/sandboxes", json=body, params=params, timeout=create_timeout,
+        )
         resp.raise_for_status()
         data = resp.json()
         sid = data["sandbox_id"]
@@ -268,7 +297,10 @@ class AsyncMmini:
             body["host"] = host
         params = {"wait": "true"} if wait else {}
 
-        resp = await self._http.post("/v1/sandboxes", json=body, params=params)
+        create_timeout = 180.0 if wait else 60.0
+        resp = await self._http.post(
+            "/v1/sandboxes", json=body, params=params, timeout=create_timeout,
+        )
         resp.raise_for_status()
         data = resp.json()
         sid = data["sandbox_id"]
