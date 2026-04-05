@@ -175,17 +175,15 @@ class Mmini:
         host: str = "",
         device_type: str = "",
         runtime: str = "",
-        host: str = "",
     ) -> MacOSSandbox | IOSSandbox:
         """Create a new sandbox.
 
         Args:
             type: "macos" (default) or "ios".
             wait: macOS only — if True, gateway retries up to 2min when pool is empty.
-            host: macOS only — claim a VM on a specific host (e.g. "mm001").
+            host: Pin sandbox to a specific host machine (e.g. "mm001").
             device_type: iOS only — simulator device type identifier.
             runtime: iOS only — simulator runtime identifier.
-            host: Pin sandbox to a specific host machine.
         """
         body: dict = {"type": type}
         if host:
@@ -216,8 +214,6 @@ class Mmini:
             vm_ip=data.get("vm_ip", ""),
             host=data.get("host", ""),
             ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
-            vm_ip=data.get("vm_ip", ""),
-            host=data.get("host", ""),
         )
 
     def get(self, sandbox_id: str) -> Sandbox:
@@ -283,17 +279,15 @@ class AsyncMmini:
         host: str = "",
         device_type: str = "",
         runtime: str = "",
-        host: str = "",
     ) -> AsyncMacOSSandbox | AsyncIOSSandbox:
         """Create a new sandbox.
 
         Args:
             type: "macos" (default) or "ios".
             wait: macOS only — if True, gateway retries up to 2min when pool is empty.
-            host: macOS only — claim a VM on a specific host (e.g. "mm001").
+            host: Pin sandbox to a specific host machine (e.g. "mm001").
             device_type: iOS only — simulator device type identifier.
             runtime: iOS only — simulator runtime identifier.
-            host: Pin sandbox to a specific host machine.
         """
         body: dict = {"type": type}
         if host:
