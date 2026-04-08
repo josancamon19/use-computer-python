@@ -7,7 +7,7 @@ from pathlib import Path
 
 import httpx
 
-_RETRYABLE = (httpx.ReadTimeout, httpx.ConnectError, httpx.RemoteProtocolError)
+_RETRYABLE = (httpx.ReadTimeout, httpx.ReadError, httpx.ConnectError, httpx.RemoteProtocolError)
 _RETRY_STATUS = {500, 502, 503, 504}
 _MAX_RETRIES = 3
 _RETRY_DELAY = 2.0
