@@ -45,7 +45,6 @@ class _RetryTransport(httpx.BaseTransport):
         self._delay = delay
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
-        last_exc: Exception | None = None
         resp = None
         for attempt in range(self._max_retries + 1):
             try:
@@ -98,7 +97,6 @@ class _AsyncRetryTransport(httpx.AsyncBaseTransport):
         self._delay = delay
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        last_exc: Exception | None = None
         resp = None
         for attempt in range(self._max_retries + 1):
             try:
@@ -193,8 +191,6 @@ class Mmini:
                 body["device_type"] = device_type
             if runtime:
                 body["runtime"] = runtime
-        if host:
-            body["host"] = host
         params = {"wait": "true"} if wait else {}
 
         create_timeout = 180.0 if wait else 60.0
@@ -297,8 +293,6 @@ class AsyncMmini:
                 body["device_type"] = device_type
             if runtime:
                 body["runtime"] = runtime
-        if host:
-            body["host"] = host
         params = {"wait": "true"} if wait else {}
 
         create_timeout = 180.0 if wait else 60.0
