@@ -1,12 +1,26 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import logging
+import tarfile
 import time
+from collections.abc import Callable, Coroutine
 from enum import Enum
 from pathlib import Path
+from typing import Any, TypeVar
 
 import httpx
+
+from mmini.display import AsyncDisplay, Display
+from mmini.ios.apps import Apps, AsyncApps
+from mmini.ios.environment import AsyncEnvironment, Environment
+from mmini.ios.input import AsyncInput, Input
+from mmini.macos.keyboard import AsyncKeyboard, Keyboard
+from mmini.macos.mouse import AsyncMouse, Mouse
+from mmini.models import ActResult, ExecResult
+from mmini.recording import AsyncRecording, Recording
+from mmini.screenshot import AsyncScreenshot, Screenshot
 
 _log = logging.getLogger("mmini.sandbox")
 _RETRYABLE = (httpx.ReadTimeout, httpx.ReadError, httpx.ConnectError, httpx.RemoteProtocolError)
@@ -23,7 +37,10 @@ def _should_retry(exc: Exception) -> bool:
     return False
 
 
-def _retry_sync(fn, *args, **kwargs):
+_T = TypeVar("_T")
+
+
+def _retry_sync(fn: Callable[..., _T], *args: Any, **kwargs: Any) -> _T:
     for attempt in range(_MAX_RETRIES + 1):
         try:
             return fn(*args, **kwargs)
@@ -33,9 +50,10 @@ def _retry_sync(fn, *args, **kwargs):
                 time.sleep(_RETRY_DELAY)
                 continue
             raise
+    raise RuntimeError("unreachable")
 
 
-async def _retry_async(fn, *args, **kwargs):
+async def _retry_async(fn: Callable[..., Coroutine[Any, Any, _T]], *args: Any, **kwargs: Any) -> _T:
     for attempt in range(_MAX_RETRIES + 1):
         try:
             return await fn(*args, **kwargs)
@@ -45,16 +63,7 @@ async def _retry_async(fn, *args, **kwargs):
                 await asyncio.sleep(_RETRY_DELAY)
                 continue
             raise
-
-from mmini.display import AsyncDisplay, Display
-from mmini.ios.apps import Apps, AsyncApps
-from mmini.ios.environment import AsyncEnvironment, Environment
-from mmini.ios.input import AsyncInput, Input
-from mmini.macos.keyboard import AsyncKeyboard, Keyboard
-from mmini.macos.mouse import AsyncMouse, Mouse
-from mmini.models import ActResult, ExecResult
-from mmini.recording import AsyncRecording, Recording
-from mmini.screenshot import AsyncScreenshot, Screenshot
+    raise RuntimeError("unreachable")
 
 
 class SandboxType(str, Enum):
@@ -96,20 +105,24 @@ class Sandbox:
         self.upload_bytes(data, remote_path)
 
     def upload_bytes(self, data: bytes, remote_path: str) -> None:
-        resp = self._http.put(
-            f"{self._prefix}/files",
-            params={"path": remote_path},
-            content=data,
-            headers={"Content-Type": "application/octet-stream"},
-        )
-        resp.raise_for_status()
+        def _do():
+            resp = self._http.put(
+                f"{self._prefix}/files",
+                params={"path": remote_path},
+                content=data,
+                headers={"Content-Type": "application/octet-stream"},
+            )
+            resp.raise_for_status()
+        _retry_sync(_do)
 
     def download_file(self, remote_path: str, local_path: str | Path) -> None:
         local_path = Path(local_path)
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        resp = self._http.get(f"{self._prefix}/files", params={"path": remote_path})
-        resp.raise_for_status()
-        local_path.write_bytes(resp.content)
+        def _do():
+            resp = self._http.get(f"{self._prefix}/files", params={"path": remote_path})
+            resp.raise_for_status()
+            local_path.write_bytes(resp.content)
+        _retry_sync(_do)
 
     def close(self):
         self._http.delete(f"{self._prefix}")
@@ -157,16 +170,14 @@ class MacOSSandbox(Sandbox):
         return ActResult(data=resp.json())
 
     def exec_ssh(self, command: str, timeout: int = 120) -> ExecResult:
-        def _do():
-            resp = self._http.post(f"{self._prefix}/exec", json={"command": command}, timeout=timeout)
-            resp.raise_for_status()
-            return ExecResult.from_dict(resp.json())
-        return _retry_sync(_do)
+        return _retry_sync(self._exec_ssh_once, command, timeout)
+
+    def _exec_ssh_once(self, command: str, timeout: int) -> ExecResult:
+        resp = self._http.post(f"{self._prefix}/exec", json={"command": command}, timeout=timeout)
+        resp.raise_for_status()
+        return ExecResult.from_dict(resp.json())
 
     def upload_dir(self, local_dir: str | Path, remote_dir: str) -> None:
-        import io
-        import tarfile
-
         local_dir = Path(local_dir)
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
@@ -247,9 +258,11 @@ class AsyncSandbox:
     async def download_file(self, remote_path: str, local_path: str | Path) -> None:
         local_path = Path(local_path)
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        resp = await self._http.get(f"{self._prefix}/files", params={"path": remote_path})
-        resp.raise_for_status()
-        local_path.write_bytes(resp.content)
+        async def _do():
+            resp = await self._http.get(f"{self._prefix}/files", params={"path": remote_path})
+            resp.raise_for_status()
+            local_path.write_bytes(resp.content)
+        await _retry_async(_do)
 
     async def close(self):
         await self._http.delete(f"{self._prefix}")
@@ -297,18 +310,16 @@ class AsyncMacOSSandbox(AsyncSandbox):
         return ActResult(data=resp.json())
 
     async def exec_ssh(self, command: str, timeout: int = 120) -> ExecResult:
-        async def _do():
-            resp = await self._http.post(
-                f"{self._prefix}/exec", json={"command": command}, timeout=timeout
-            )
-            resp.raise_for_status()
-            return ExecResult.from_dict(resp.json())
-        return await _retry_async(_do)
+        return await _retry_async(self._exec_ssh_once, command, timeout)
+
+    async def _exec_ssh_once(self, command: str, timeout: int) -> ExecResult:
+        resp = await self._http.post(
+            f"{self._prefix}/exec", json={"command": command}, timeout=timeout
+        )
+        resp.raise_for_status()
+        return ExecResult.from_dict(resp.json())
 
     async def upload_dir(self, local_dir: str | Path, remote_dir: str) -> None:
-        import io
-        import tarfile
-
         local_dir = Path(local_dir)
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
