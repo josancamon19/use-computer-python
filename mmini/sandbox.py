@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import tarfile
+import threading
 from enum import Enum
 from pathlib import Path
 
@@ -46,6 +47,8 @@ class Sandbox:
         self.ssh_url = ssh_url
         self._http = http
         self._prefix = f"/v1/sandboxes/{sandbox_id}"
+        self._keepalive_stop: threading.Event | None = None
+        self._keepalive_thread: threading.Thread | None = None
 
         self.screenshot = Screenshot(http, self._prefix)
         self.recording = Recording(http, self._prefix)
@@ -76,19 +79,19 @@ class Sandbox:
 
     def start_keepalive(self, interval: float = 30.0) -> None:
         """Start a background thread that pings the gateway every `interval` seconds."""
-        import threading
+        stop = threading.Event()
 
         def _loop():
-            while not self._keepalive_stop.is_set():
-                self._keepalive_stop.wait(interval)
-                if self._keepalive_stop.is_set():
+            while not stop.is_set():
+                stop.wait(interval)
+                if stop.is_set():
                     break
                 try:
                     self._http.post(f"{self._prefix}/keepalive")
                 except Exception:
                     pass
 
-        self._keepalive_stop = threading.Event()
+        self._keepalive_stop = stop
         self._keepalive_thread = threading.Thread(target=_loop, daemon=True)
         self._keepalive_thread.start()
 
