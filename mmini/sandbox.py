@@ -207,7 +207,34 @@ class AsyncSandbox:
         resp.raise_for_status()
         local_path.write_bytes(resp.content)
 
+    async def start_keepalive(self, interval: float = 30.0) -> None:
+        """Start a background task that pings the gateway every `interval` seconds."""
+        import asyncio
+        import logging
+        _log = logging.getLogger("mmini.keepalive")
+
+        async def _loop():
+            while True:
+                await asyncio.sleep(interval)
+                try:
+                    await self._http.post(f"{self._prefix}/keepalive")
+                except Exception:
+                    pass  # best-effort, don't crash the agent
+        self._keepalive_task = asyncio.create_task(_loop())
+
+    async def stop_keepalive(self) -> None:
+        """Stop the keepalive background task."""
+        task = getattr(self, "_keepalive_task", None)
+        if task:
+            task.cancel()
+            try:
+                await task
+            except Exception:
+                pass
+            self._keepalive_task = None
+
     async def close(self):
+        await self.stop_keepalive()
         await self._http.delete(f"{self._prefix}")
 
     async def __aenter__(self):
