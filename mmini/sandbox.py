@@ -74,7 +74,37 @@ class Sandbox:
         resp.raise_for_status()
         local_path.write_bytes(resp.content)
 
+    def start_keepalive(self, interval: float = 30.0) -> None:
+        """Start a background thread that pings the gateway every `interval` seconds."""
+        import threading
+
+        def _loop():
+            while not self._keepalive_stop.is_set():
+                self._keepalive_stop.wait(interval)
+                if self._keepalive_stop.is_set():
+                    break
+                try:
+                    self._http.post(f"{self._prefix}/keepalive")
+                except Exception:
+                    pass
+
+        self._keepalive_stop = threading.Event()
+        self._keepalive_thread = threading.Thread(target=_loop, daemon=True)
+        self._keepalive_thread.start()
+
+    def stop_keepalive(self) -> None:
+        """Stop the keepalive background thread."""
+        stop = getattr(self, "_keepalive_stop", None)
+        if stop:
+            stop.set()
+        thread = getattr(self, "_keepalive_thread", None)
+        if thread:
+            thread.join(timeout=2)
+        self._keepalive_stop = None
+        self._keepalive_thread = None
+
     def close(self):
+        self.stop_keepalive()
         self._http.delete(f"{self._prefix}")
 
     def __enter__(self):
