@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-import asyncio
 import io
-import logging
 import tarfile
-import time
-from collections.abc import Callable, Coroutine
 from enum import Enum
 from pathlib import Path
-from typing import Any, TypeVar
 
 import httpx
 
@@ -21,49 +16,6 @@ from mmini.macos.mouse import AsyncMouse, Mouse
 from mmini.models import ActResult, ExecResult
 from mmini.recording import AsyncRecording, Recording
 from mmini.screenshot import AsyncScreenshot, Screenshot
-
-_log = logging.getLogger("mmini.sandbox")
-_RETRYABLE = (httpx.ReadTimeout, httpx.ReadError, httpx.ConnectError, httpx.RemoteProtocolError)
-_RETRY_STATUS = {500, 502, 503, 504}
-_MAX_RETRIES = 3
-_RETRY_DELAY = 2.0
-
-
-def _should_retry(exc: Exception) -> bool:
-    if isinstance(exc, _RETRYABLE):
-        return True
-    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in _RETRY_STATUS:
-        return True
-    return False
-
-
-_T = TypeVar("_T")
-
-
-def _retry_sync(fn: Callable[..., _T], *args: Any, **kwargs: Any) -> _T:
-    for attempt in range(_MAX_RETRIES + 1):
-        try:
-            return fn(*args, **kwargs)
-        except Exception as e:
-            if attempt < _MAX_RETRIES and _should_retry(e):
-                _log.warning("retry %d/%d: %s", attempt + 1, _MAX_RETRIES, e)
-                time.sleep(_RETRY_DELAY)
-                continue
-            raise
-    raise RuntimeError("unreachable")
-
-
-async def _retry_async(fn: Callable[..., Coroutine[Any, Any, _T]], *args: Any, **kwargs: Any) -> _T:
-    for attempt in range(_MAX_RETRIES + 1):
-        try:
-            return await fn(*args, **kwargs)
-        except Exception as e:
-            if attempt < _MAX_RETRIES and _should_retry(e):
-                _log.warning("retry %d/%d: %s", attempt + 1, _MAX_RETRIES, e)
-                await asyncio.sleep(_RETRY_DELAY)
-                continue
-            raise
-    raise RuntimeError("unreachable")
 
 
 class SandboxType(str, Enum):
@@ -105,24 +57,20 @@ class Sandbox:
         self.upload_bytes(data, remote_path)
 
     def upload_bytes(self, data: bytes, remote_path: str) -> None:
-        def _do():
-            resp = self._http.put(
-                f"{self._prefix}/files",
-                params={"path": remote_path},
-                content=data,
-                headers={"Content-Type": "application/octet-stream"},
-            )
-            resp.raise_for_status()
-        _retry_sync(_do)
+        resp = self._http.put(
+            f"{self._prefix}/files",
+            params={"path": remote_path},
+            content=data,
+            headers={"Content-Type": "application/octet-stream"},
+        )
+        resp.raise_for_status()
 
     def download_file(self, remote_path: str, local_path: str | Path) -> None:
         local_path = Path(local_path)
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        def _do():
-            resp = self._http.get(f"{self._prefix}/files", params={"path": remote_path})
-            resp.raise_for_status()
-            local_path.write_bytes(resp.content)
-        _retry_sync(_do)
+        resp = self._http.get(f"{self._prefix}/files", params={"path": remote_path})
+        resp.raise_for_status()
+        local_path.write_bytes(resp.content)
 
     def close(self):
         self._http.delete(f"{self._prefix}")
@@ -170,9 +118,6 @@ class MacOSSandbox(Sandbox):
         return ActResult(data=resp.json())
 
     def exec_ssh(self, command: str, timeout: int = 120) -> ExecResult:
-        return _retry_sync(self._exec_ssh_once, command, timeout)
-
-    def _exec_ssh_once(self, command: str, timeout: int) -> ExecResult:
         resp = self._http.post(f"{self._prefix}/exec", json={"command": command}, timeout=timeout)
         resp.raise_for_status()
         return ExecResult.from_dict(resp.json())
@@ -245,24 +190,20 @@ class AsyncSandbox:
         await self.upload_bytes(data, remote_path)
 
     async def upload_bytes(self, data: bytes, remote_path: str) -> None:
-        async def _do():
-            resp = await self._http.put(
-                f"{self._prefix}/files",
-                params={"path": remote_path},
-                content=data,
-                headers={"Content-Type": "application/octet-stream"},
-            )
-            resp.raise_for_status()
-        await _retry_async(_do)
+        resp = await self._http.put(
+            f"{self._prefix}/files",
+            params={"path": remote_path},
+            content=data,
+            headers={"Content-Type": "application/octet-stream"},
+        )
+        resp.raise_for_status()
 
     async def download_file(self, remote_path: str, local_path: str | Path) -> None:
         local_path = Path(local_path)
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        async def _do():
-            resp = await self._http.get(f"{self._prefix}/files", params={"path": remote_path})
-            resp.raise_for_status()
-            local_path.write_bytes(resp.content)
-        await _retry_async(_do)
+        resp = await self._http.get(f"{self._prefix}/files", params={"path": remote_path})
+        resp.raise_for_status()
+        local_path.write_bytes(resp.content)
 
     async def close(self):
         await self._http.delete(f"{self._prefix}")
@@ -310,9 +251,6 @@ class AsyncMacOSSandbox(AsyncSandbox):
         return ActResult(data=resp.json())
 
     async def exec_ssh(self, command: str, timeout: int = 120) -> ExecResult:
-        return await _retry_async(self._exec_ssh_once, command, timeout)
-
-    async def _exec_ssh_once(self, command: str, timeout: int) -> ExecResult:
         resp = await self._http.post(
             f"{self._prefix}/exec", json={"command": command}, timeout=timeout
         )
