@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import tarfile
 import threading
+import urllib.request
 from enum import Enum
 from pathlib import Path
 
@@ -214,6 +215,8 @@ class AsyncSandbox:
         self.ssh_url = ssh_url
         self._http = http
         self._prefix = f"/v1/sandboxes/{sandbox_id}"
+        self._keepalive_stop: threading.Event | None = None
+        self._keepalive_thread: threading.Thread | None = None
 
         self.screenshot = AsyncScreenshot(http, self._prefix)
         self.recording = AsyncRecording(http, self._prefix)
@@ -241,30 +244,45 @@ class AsyncSandbox:
         local_path.write_bytes(resp.content)
 
     async def start_keepalive(self, interval: float = 30.0) -> None:
-        """Start a background task that pings the gateway every `interval` seconds."""
-        import asyncio
-        import logging
-        _log = logging.getLogger("mmini.keepalive")
+        """Start a background OS thread that pings the gateway every `interval` seconds.
 
-        async def _loop():
-            while True:
-                await asyncio.sleep(interval)
+        Uses a real thread (not an asyncio task) so it fires reliably even when
+        the event loop is blocked by sync calls (e.g. sync Anthropic client) or
+        when many trials in the same process compete for loop time. The thread
+        uses urllib.request directly — no shared state with the async client.
+        """
+        base_url = str(self._http.base_url).rstrip("/")
+        keepalive_url = f"{base_url}{self._prefix}/keepalive"
+        auth = self._http.headers.get("Authorization", "")
+        headers = {"Authorization": auth} if auth else {}
+
+        stop = threading.Event()
+
+        def _loop():
+            while not stop.is_set():
+                stop.wait(interval)
+                if stop.is_set():
+                    break
                 try:
-                    await self._http.post(f"{self._prefix}/keepalive")
+                    req = urllib.request.Request(keepalive_url, method="POST", headers=headers)
+                    urllib.request.urlopen(req, timeout=10).close()
                 except Exception:
-                    pass  # best-effort, don't crash the agent
-        self._keepalive_task = asyncio.create_task(_loop())
+                    pass
+
+        self._keepalive_stop = stop
+        self._keepalive_thread = threading.Thread(target=_loop, daemon=True)
+        self._keepalive_thread.start()
 
     async def stop_keepalive(self) -> None:
-        """Stop the keepalive background task."""
-        task = getattr(self, "_keepalive_task", None)
-        if task:
-            task.cancel()
-            try:
-                await task
-            except Exception:
-                pass
-            self._keepalive_task = None
+        """Stop the keepalive background thread."""
+        stop = self._keepalive_stop
+        if stop:
+            stop.set()
+        thread = self._keepalive_thread
+        if thread:
+            thread.join(timeout=2)
+        self._keepalive_stop = None
+        self._keepalive_thread = None
 
     async def close(self):
         await self.stop_keepalive()
