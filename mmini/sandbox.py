@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from enum import Enum
 from pathlib import Path
 
 import httpx
 
+_log = logging.getLogger("mmini.sandbox")
 _RETRYABLE = (httpx.ReadTimeout, httpx.ReadError, httpx.ConnectError, httpx.RemoteProtocolError)
 _RETRY_STATUS = {500, 502, 503, 504}
 _MAX_RETRIES = 3
@@ -27,6 +29,7 @@ def _retry_sync(fn, *args, **kwargs):
             return fn(*args, **kwargs)
         except Exception as e:
             if attempt < _MAX_RETRIES and _should_retry(e):
+                _log.warning("retry %d/%d: %s", attempt + 1, _MAX_RETRIES, e)
                 time.sleep(_RETRY_DELAY)
                 continue
             raise
@@ -38,6 +41,7 @@ async def _retry_async(fn, *args, **kwargs):
             return await fn(*args, **kwargs)
         except Exception as e:
             if attempt < _MAX_RETRIES and _should_retry(e):
+                _log.warning("retry %d/%d: %s", attempt + 1, _MAX_RETRIES, e)
                 await asyncio.sleep(_RETRY_DELAY)
                 continue
             raise
