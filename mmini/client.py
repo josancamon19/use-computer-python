@@ -50,7 +50,7 @@ class _RetryTransport(httpx.BaseTransport):
         for attempt in range(self._max_retries + 1):
             try:
                 resp = self._transport.handle_request(request)
-            except (httpx.TimeoutException, httpx.ConnectError) as exc:
+            except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError) as exc:
                 last_exc = exc
                 if attempt == self._max_retries:
                     raise
@@ -103,7 +103,7 @@ class _AsyncRetryTransport(httpx.AsyncBaseTransport):
         for attempt in range(self._max_retries + 1):
             try:
                 resp = await self._transport.handle_async_request(request)
-            except (httpx.TimeoutException, httpx.ConnectError) as exc:
+            except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError) as exc:
                 last_exc = exc
                 if attempt == self._max_retries:
                     raise
