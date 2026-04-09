@@ -26,6 +26,56 @@ class SandboxType(str, Enum):
 
 
 # ---------------------------------------------------------------------------
+# Keepalive helper — shared by sync and async sandboxes
+# ---------------------------------------------------------------------------
+
+
+def _start_keepalive_thread(
+    http_client: httpx.Client | httpx.AsyncClient,
+    prefix: str,
+    interval: float,
+) -> tuple[threading.Event, threading.Thread]:
+    """Spawn a daemon thread that POSTs `<prefix>/keepalive` every `interval` seconds.
+
+    Uses urllib.request directly (not the SDK's httpx client) so the thread
+    runs independently of any asyncio loop or shared connection pool. This is
+    why it works for both sync Sandbox and AsyncSandbox: the thread never
+    touches the caller's HTTP client.
+    """
+    base_url = str(http_client.base_url).rstrip("/")
+    keepalive_url = f"{base_url}{prefix}/keepalive"
+    auth = http_client.headers.get("Authorization", "")
+    headers = {"Authorization": auth} if auth else {}
+
+    stop = threading.Event()
+
+    def _loop() -> None:
+        while not stop.is_set():
+            stop.wait(interval)
+            if stop.is_set():
+                break
+            try:
+                req = urllib.request.Request(keepalive_url, method="POST", headers=headers)
+                urllib.request.urlopen(req, timeout=10).close()
+            except Exception:
+                pass
+
+    thread = threading.Thread(target=_loop, daemon=True)
+    thread.start()
+    return stop, thread
+
+
+def _stop_keepalive_thread(
+    stop: threading.Event | None,
+    thread: threading.Thread | None,
+) -> None:
+    if stop:
+        stop.set()
+    if thread:
+        thread.join(timeout=2)
+
+
+# ---------------------------------------------------------------------------
 # Sync
 # ---------------------------------------------------------------------------
 
@@ -80,30 +130,13 @@ class Sandbox:
 
     def start_keepalive(self, interval: float = 30.0) -> None:
         """Start a background thread that pings the gateway every `interval` seconds."""
-        stop = threading.Event()
-
-        def _loop():
-            while not stop.is_set():
-                stop.wait(interval)
-                if stop.is_set():
-                    break
-                try:
-                    self._http.post(f"{self._prefix}/keepalive")
-                except Exception:
-                    pass
-
-        self._keepalive_stop = stop
-        self._keepalive_thread = threading.Thread(target=_loop, daemon=True)
-        self._keepalive_thread.start()
+        self._keepalive_stop, self._keepalive_thread = _start_keepalive_thread(
+            self._http, self._prefix, interval
+        )
 
     def stop_keepalive(self) -> None:
         """Stop the keepalive background thread."""
-        stop = getattr(self, "_keepalive_stop", None)
-        if stop:
-            stop.set()
-        thread = getattr(self, "_keepalive_thread", None)
-        if thread:
-            thread.join(timeout=2)
+        _stop_keepalive_thread(self._keepalive_stop, self._keepalive_thread)
         self._keepalive_stop = None
         self._keepalive_thread = None
 
@@ -247,40 +280,15 @@ class AsyncSandbox:
         """Start a background OS thread that pings the gateway every `interval` seconds.
 
         Uses a real thread (not an asyncio task) so it fires reliably even when
-        the event loop is blocked by sync calls (e.g. sync Anthropic client) or
-        when many trials in the same process compete for loop time. The thread
-        uses urllib.request directly — no shared state with the async client.
+        the event loop is blocked by sync calls (e.g. sync Anthropic client).
         """
-        base_url = str(self._http.base_url).rstrip("/")
-        keepalive_url = f"{base_url}{self._prefix}/keepalive"
-        auth = self._http.headers.get("Authorization", "")
-        headers = {"Authorization": auth} if auth else {}
-
-        stop = threading.Event()
-
-        def _loop():
-            while not stop.is_set():
-                stop.wait(interval)
-                if stop.is_set():
-                    break
-                try:
-                    req = urllib.request.Request(keepalive_url, method="POST", headers=headers)
-                    urllib.request.urlopen(req, timeout=10).close()
-                except Exception:
-                    pass
-
-        self._keepalive_stop = stop
-        self._keepalive_thread = threading.Thread(target=_loop, daemon=True)
-        self._keepalive_thread.start()
+        self._keepalive_stop, self._keepalive_thread = _start_keepalive_thread(
+            self._http, self._prefix, interval
+        )
 
     async def stop_keepalive(self) -> None:
         """Stop the keepalive background thread."""
-        stop = self._keepalive_stop
-        if stop:
-            stop.set()
-        thread = self._keepalive_thread
-        if thread:
-            thread.join(timeout=2)
+        _stop_keepalive_thread(self._keepalive_stop, self._keepalive_thread)
         self._keepalive_stop = None
         self._keepalive_thread = None
 
