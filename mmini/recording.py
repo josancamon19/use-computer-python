@@ -33,8 +33,8 @@ class Recording:
         resp.raise_for_status()
         return RecordingInfo.from_dict(resp.json())
 
-    def download(self, recording_id: str, local_path: str) -> None:
-        with self._http.stream("GET", f"{self._prefix}/recordings/{recording_id}/download") as resp:
+    def download(self, recording_id: str, local_path: str, timeout: float = 30.0) -> None:
+        with self._http.stream("GET", f"{self._prefix}/recordings/{recording_id}/download", timeout=timeout) as resp:
             resp.raise_for_status()
             with open(local_path, "wb") as f:
                 for chunk in resp.iter_bytes(chunk_size=65536):
@@ -73,9 +73,9 @@ class AsyncRecording:
         resp.raise_for_status()
         return RecordingInfo.from_dict(resp.json())
 
-    async def download(self, recording_id: str, local_path: str) -> None:
+    async def download(self, recording_id: str, local_path: str, timeout: float = 30.0) -> None:
         async with self._http.stream(
-            "GET", f"{self._prefix}/recordings/{recording_id}/download"
+            "GET", f"{self._prefix}/recordings/{recording_id}/download", timeout=timeout
         ) as resp:
             resp.raise_for_status()
             with open(local_path, "wb") as f:
