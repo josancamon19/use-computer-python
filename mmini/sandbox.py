@@ -57,6 +57,8 @@ class Sandbox:
         self.upload_bytes(data, remote_path)
 
     def upload_bytes(self, data: bytes, remote_path: str) -> None:
+        # NOTE: parent directories must exist — SCP won't create them.
+        # Use upload_dir() for nested paths or mkdir -p via exec_ssh first.
         resp = self._http.put(
             f"{self._prefix}/files",
             params={"path": remote_path},
