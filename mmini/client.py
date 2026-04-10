@@ -41,7 +41,7 @@ class Mmini:
         return resp.json()
 
     @overload
-    def create(self, *, type: Literal["macos"] = ..., wait: bool = ..., host: str = ...) -> MacOSSandbox: ...
+    def create(self, *, type: Literal["macos"] = ..., host: str = ...) -> MacOSSandbox: ...
     @overload
     def create(
         self, *, type: Literal["ios"], device_type: str = ..., runtime: str = ...
@@ -51,7 +51,6 @@ class Mmini:
         self,
         *,
         type: str = "macos",
-        wait: bool = False,
         host: str = "",
         device_type: str = "",
         runtime: str = "",
@@ -60,7 +59,6 @@ class Mmini:
 
         Args:
             type: "macos" (default) or "ios".
-            wait: macOS only — if True, gateway retries up to 2min when pool is empty.
             host: Pin sandbox to a specific host machine (e.g. "mm001").
             device_type: iOS only — simulator device type identifier.
             runtime: iOS only — simulator runtime identifier.
@@ -73,12 +71,8 @@ class Mmini:
                 body["device_type"] = device_type
             if runtime:
                 body["runtime"] = runtime
-        params = {"wait": "true"} if wait else {}
 
-        create_timeout = 180.0 if wait else 60.0
-        resp = self._http.post(
-            "/v1/sandboxes", json=body, params=params, timeout=create_timeout,
-        )
+        resp = self._http.post("/v1/sandboxes", json=body, timeout=180.0)
         resp.raise_for_status()
         data = resp.json()
         sid = data["sandbox_id"]
@@ -142,7 +136,7 @@ class AsyncMmini:
 
     @overload
     async def create(
-        self, *, type: Literal["macos"] = ..., wait: bool = ..., host: str = ...
+        self, *, type: Literal["macos"] = ..., host: str = ...
     ) -> AsyncMacOSSandbox: ...
     @overload
     async def create(
@@ -153,7 +147,6 @@ class AsyncMmini:
         self,
         *,
         type: str = "macos",
-        wait: bool = False,
         host: str = "",
         device_type: str = "",
         runtime: str = "",
@@ -162,7 +155,6 @@ class AsyncMmini:
 
         Args:
             type: "macos" (default) or "ios".
-            wait: macOS only — if True, gateway retries up to 2min when pool is empty.
             host: Pin sandbox to a specific host machine (e.g. "mm001").
             device_type: iOS only — simulator device type identifier.
             runtime: iOS only — simulator runtime identifier.
@@ -175,12 +167,8 @@ class AsyncMmini:
                 body["device_type"] = device_type
             if runtime:
                 body["runtime"] = runtime
-        params = {"wait": "true"} if wait else {}
 
-        create_timeout = 180.0 if wait else 60.0
-        resp = await self._http.post(
-            "/v1/sandboxes", json=body, params=params, timeout=create_timeout,
-        )
+        resp = await self._http.post("/v1/sandboxes", json=body, timeout=180.0)
         resp.raise_for_status()
         data = resp.json()
         sid = data["sandbox_id"]
