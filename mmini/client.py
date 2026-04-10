@@ -75,11 +75,7 @@ class Mmini:
                 body["runtime"] = runtime
         params = {"wait": "true"} if wait else {}
 
-        # 600s when wait=True so the SDK doesn't bail before the gateway's
-        # 8-min createSandboxWait deadline. Worst case is two sequential warm
-        # clones (~3 min each) needing to come ready before this caller gets a
-        # VM, plus headroom for the cua-server readiness poll.
-        create_timeout = 600.0 if wait else 60.0
+        create_timeout = 180.0 if wait else 60.0
         resp = self._http.post(
             "/v1/sandboxes", json=body, params=params, timeout=create_timeout,
         )
@@ -181,11 +177,7 @@ class AsyncMmini:
                 body["runtime"] = runtime
         params = {"wait": "true"} if wait else {}
 
-        # 600s when wait=True so the SDK doesn't bail before the gateway's
-        # 8-min createSandboxWait deadline. Worst case is two sequential warm
-        # clones (~3 min each) needing to come ready before this caller gets a
-        # VM, plus headroom for the cua-server readiness poll.
-        create_timeout = 600.0 if wait else 60.0
+        create_timeout = 180.0 if wait else 60.0
         resp = await self._http.post(
             "/v1/sandboxes", json=body, params=params, timeout=create_timeout,
         )
