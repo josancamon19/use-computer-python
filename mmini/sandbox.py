@@ -191,6 +191,23 @@ class MacOSSandbox(Sandbox):
         resp.raise_for_status()
         return ExecResult.from_dict(resp.json())
 
+    def exec_ax(self, command: str, timeout: int = 120) -> ExecResult:
+        """Run a shell command on the VM via cua-server's run_command.
+
+        Use this *only* when your command needs the macOS Accessibility API
+        (AXUIElementCopyAttributeValue, synthetic CGEvent, etc.). The
+        responsibility chain through cua-server (`launchd → cua-server →
+        bash → command`) lets the system TCC grant on python3.12 actually
+        apply, while the SSH-backed `exec_ssh` puts `sshd-keygen-wrapper`
+        in the chain and TCC denies AX calls with -25211.
+
+        Sparser env than `exec_ssh` — set $PATH explicitly inside your
+        command if you need brew binaries.
+        """
+        resp = self._http.post(f"{self._prefix}/exec_ax", json={"command": command}, timeout=timeout)
+        resp.raise_for_status()
+        return ExecResult.from_dict(resp.json())
+
     def upload_dir(self, local_dir: str | Path, remote_dir: str) -> None:
         local_dir = Path(local_dir)
         buf = io.BytesIO()
@@ -341,6 +358,14 @@ class AsyncMacOSSandbox(AsyncSandbox):
     async def exec_ssh(self, command: str, timeout: int = 120) -> ExecResult:
         resp = await self._http.post(
             f"{self._prefix}/exec", json={"command": command}, timeout=timeout
+        )
+        resp.raise_for_status()
+        return ExecResult.from_dict(resp.json())
+
+    async def exec_ax(self, command: str, timeout: int = 120) -> ExecResult:
+        """Async version of exec_ax — see MacOSSandbox.exec_ax for details."""
+        resp = await self._http.post(
+            f"{self._prefix}/exec_ax", json={"command": command}, timeout=timeout
         )
         resp.raise_for_status()
         return ExecResult.from_dict(resp.json())
