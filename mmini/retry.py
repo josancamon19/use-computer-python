@@ -14,7 +14,7 @@ import httpx
 
 _log = logging.getLogger("mmini.retry")
 
-RETRYABLE_EXCEPTIONS = (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError)
+RETRYABLE_EXCEPTIONS = (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError, httpx.WriteError)
 RETRYABLE_STATUS_CODES = frozenset({500, 502, 503, 504, 529})
 NO_RETRY_PATTERNS = ("not found", "connection refused")
 MAX_RETRIES = 3
