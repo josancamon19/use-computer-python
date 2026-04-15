@@ -447,3 +447,17 @@ def needs_rewrite(text: str) -> bool:
     """Any `osascript -e` invocation gets rewritten now (the fallback
     converter wraps everything with `with timeout of N seconds`)."""
     return bool(_OSASCRIPT_RE.search(text))
+
+
+def needs_exec_ax(text: str) -> bool:
+    """Return True if the (possibly transpiled) text contains ax_helper calls.
+
+    ax_helper calls (emitted by the specialised converters) use cua-server's
+    run_command route and MUST go through exec_ax (launchd→cua-server chain
+    provides the Accessibility TCC grant).
+
+    Fallback-transpiled lines (osascript heredocs wrapped with `with timeout`)
+    call osascript directly from bash — they do NOT need exec_ax and can run
+    through the regular /exec (SSH/lume) endpoint, which has no 30s hard limit.
+    """
+    return HELPER in text
