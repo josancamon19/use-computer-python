@@ -330,9 +330,10 @@ def _try_keystroke(script: str) -> str | None:
 DEFAULT_OSASCRIPT_TIMEOUT_S = 5
 
 # Timeout used when transpiling pre_command lines (seeding VM state). Notes and
-# iWork apps can take 8-15s to respond cold; we need state to actually be
-# written, so we allow a generous budget.
-PRE_COMMAND_OSASCRIPT_TIMEOUT_S = 30
+# iWork apps can take 8-20s to respond cold; we need state to actually be
+# written, so we allow a generous budget. Cap at 25s — cua-server's run_command
+# endpoint has a hard 30s limit; we need 5s margin to avoid 500 errors.
+PRE_COMMAND_OSASCRIPT_TIMEOUT_S = 25
 
 
 def _emit_with_timeout(applescript_body: str, timeout_s: int = DEFAULT_OSASCRIPT_TIMEOUT_S) -> str:
