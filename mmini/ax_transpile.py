@@ -80,10 +80,21 @@ _PATH_SEG_RE = re.compile(
     re.IGNORECASE,
 )
 
-# osascript -e '...' wrapped in either `'...'` or the bash-escape form
-# `'\''...'\''` that test.sh files use to embed osascript inside bash -c.
+# Match a full osascript command: one or more `-e '...'` arguments.
+# Handles both bare single quotes and the bash-escape `'\''...'\'']` form
+# that test.sh files use to embed osascript inside `bash -c '...'`.
+#
+# Group 1 captures the FIRST script body. If there are additional `-e '...'`
+# arguments (group 2 present), `transpile()` combines all bodies and uses the
+# fallback timeout wrapper (specialized converters only match single-script patterns).
 _OSASCRIPT_RE = re.compile(
-    r"""osascript\s+-e\s+(?:'\\''|')(.*?)(?:'\\''|')""",
+    r"""osascript(?:\s+-e\s+(?:'\\''|')(.*?)(?:'\\''|'))+""",
+    re.DOTALL,
+)
+
+# Used to extract ALL -e '...' bodies from a matched osascript command.
+_OSASCRIPT_E_RE = re.compile(
+    r"""-e\s+(?:'\\''|')(.*?)(?:'\\''|')""",
     re.DOTALL,
 )
 
@@ -406,9 +417,24 @@ def transpile(text: str, fallback_timeout_s: int = DEFAULT_OSASCRIPT_TIMEOUT_S) 
 
     def _replace(m: re.Match) -> str:
         nonlocal count
-        applescript = m.group(1)
-        decoded = applescript.replace(r"'\''", "'")
-        replacement = _applescript_to_shell(decoded, fallback_timeout_s=fallback_timeout_s)
+        # Extract ALL -e '...' bodies from the matched osascript command.
+        bodies = [
+            body.replace(r"'\''", "'")
+            for body in _OSASCRIPT_E_RE.findall(m.group(0))
+        ]
+        if not bodies:
+            return m.group(0)
+
+        if len(bodies) == 1:
+            # Single -e: try specialized converters, fall back to timeout wrap.
+            replacement = _applescript_to_shell(bodies[0], fallback_timeout_s=fallback_timeout_s)
+        else:
+            # Multiple -e scripts: combine as newline-separated AppleScript and
+            # always use the timeout wrapper (specialized converters expect a single
+            # pattern and won't match a compound script).
+            combined = "\n".join(bodies)
+            replacement = _emit_with_timeout(combined, timeout_s=fallback_timeout_s)
+
         if replacement is None:
             return m.group(0)
         count += 1

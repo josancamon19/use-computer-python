@@ -272,6 +272,28 @@ def test_needs_rewrite_predicate():
     assert not needs_rewrite('echo hello')
 
 
+def test_multi_e_osascript():
+    """osascript -e '...' -e '...' with multiple scripts: all bodies get
+    combined and wrapped with timeout. The emission must NOT contain raw
+    'tell application ...' as a bare bash command."""
+    src = (
+        "osascript "
+        "-e 'tell application \"Keynote\" to make new document' "
+        "-e 'tell application \"Keynote\" to set the object text of slide 1 to \"Hello\"'"
+    )
+    out, n = transpile(src)
+    assert n == 1
+    _assert_no_raw_quotes(out)
+    payload = _decode_emission(out)
+    # Both bodies must appear in the decoded payload
+    assert 'tell application "Keynote" to make new document' in payload
+    assert 'tell application "Keynote" to set the object text' in payload
+    # Must be wrapped with timeout
+    assert "with timeout of" in payload
+    # The payload must NOT start with 'tell' (which would mean bare bash execution)
+    assert not payload.startswith("tell")
+
+
 def test_fallback_timeout_param():
     """transpile(text, fallback_timeout_s=N) controls the `with timeout of N`
     value in the emitted payload. Pre_commands use 30s; verifiers use 5s."""
