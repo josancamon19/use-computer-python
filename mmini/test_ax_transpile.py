@@ -296,7 +296,7 @@ def test_multi_e_osascript():
 
 def test_fallback_timeout_param():
     """transpile(text, fallback_timeout_s=N) controls the `with timeout of N`
-    value in the emitted payload. Pre_commands use 30s; verifiers use 5s."""
+    value in the emitted payload. Pre_commands use 45s; verifiers use 5s."""
     src = 'osascript -e \'tell application "Notes" to count of notes\''
 
     out_verifier, _ = transpile(src)

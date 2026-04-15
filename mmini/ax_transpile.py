@@ -341,10 +341,11 @@ def _try_keystroke(script: str) -> str | None:
 DEFAULT_OSASCRIPT_TIMEOUT_S = 5
 
 # Timeout used when transpiling pre_command lines (seeding VM state). Notes and
-# iWork apps can take 8-20s to respond cold; we need state to actually be
-# written, so we allow a generous budget. Cap at 25s — cua-server's run_command
-# endpoint has a hard 30s limit; we need 5s margin to avoid 500 errors.
-PRE_COMMAND_OSASCRIPT_TIMEOUT_S = 25
+# iWork apps cold-start in 20-30s on a fresh VM; we need state to actually be
+# written, so we use a 45s budget. Fallback emissions route through exec (SSH),
+# not exec_ax, so there is no cua-server 30s hard limit — only the curl
+# max-time (120s) on the client side applies.
+PRE_COMMAND_OSASCRIPT_TIMEOUT_S = 45
 
 
 def _emit_with_timeout(applescript_body: str, timeout_s: int = DEFAULT_OSASCRIPT_TIMEOUT_S) -> str:
@@ -389,7 +390,7 @@ def _applescript_to_shell(script: str, fallback_timeout_s: int = DEFAULT_OSASCRI
 
     `fallback_timeout_s` controls the `with timeout of N seconds` wrapper used
     when no specialised converter matches. Callers transpiling pre_command lines
-    should pass PRE_COMMAND_OSASCRIPT_TIMEOUT_S (30s) so state-seeding calls
+    should pass PRE_COMMAND_OSASCRIPT_TIMEOUT_S (45s) so state-seeding calls
     don't get killed before the app responds. Verifier calls use the default 5s
     (fail fast = score 0, no alarm-kill).
     """
