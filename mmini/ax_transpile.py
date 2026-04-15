@@ -329,6 +329,11 @@ def _try_keystroke(script: str) -> str | None:
 # the ~1s a responsive Apple Events target needs.
 DEFAULT_OSASCRIPT_TIMEOUT_S = 5
 
+# Timeout used when transpiling pre_command lines (seeding VM state). Notes and
+# iWork apps can take 8-15s to respond cold; we need state to actually be
+# written, so we allow a generous budget.
+PRE_COMMAND_OSASCRIPT_TIMEOUT_S = 30
+
 
 def _emit_with_timeout(applescript_body: str, timeout_s: int = DEFAULT_OSASCRIPT_TIMEOUT_S) -> str:
     """Wrap an arbitrary AppleScript body in `with timeout of N seconds`.
@@ -357,18 +362,6 @@ def _emit_with_timeout(applescript_body: str, timeout_s: int = DEFAULT_OSASCRIPT
     return f"echo {script_b64} | base64 -d | bash"
 
 
-def _try_fallback_timeout(script: str) -> str | None:
-    """Terminal converter: wrap ANY AppleScript body with `with timeout`.
-
-    This always matches, so it has to run LAST in _CONVERTERS. Prevents the
-    alarm-kill class of failures for Notes/Keynote/Numbers/Pages/Contacts/
-    Reminders/Music and any other `tell application "X"` pattern we didn't
-    specialise, at the cost of those verifiers scoring 0 instead of
-    alarm-killing.
-    """
-    return _emit_with_timeout(script.strip())
-
-
 _CONVERTERS = (
     _try_attr_of_path,
     _try_attributes_of_path,
@@ -376,25 +369,37 @@ _CONVERTERS = (
     _try_front_process_name,
     _try_dock_items,
     _try_keystroke,
-    _try_fallback_timeout,  # terminal — always matches
 )
 
 
-def _applescript_to_shell(script: str) -> str | None:
+def _applescript_to_shell(script: str, fallback_timeout_s: int = DEFAULT_OSASCRIPT_TIMEOUT_S) -> str | None:
+    """Try each specialised converter; fall back to timeout-wrapped osascript.
+
+    `fallback_timeout_s` controls the `with timeout of N seconds` wrapper used
+    when no specialised converter matches. Callers transpiling pre_command lines
+    should pass PRE_COMMAND_OSASCRIPT_TIMEOUT_S (30s) so state-seeding calls
+    don't get killed before the app responds. Verifier calls use the default 5s
+    (fail fast = score 0, no alarm-kill).
+    """
     for fn in _CONVERTERS:
         out = fn(script)
         if out is not None:
             return out
-    return None
+    # Terminal fallback: wrap with timeout so the call never hangs forever.
+    return _emit_with_timeout(script.strip(), timeout_s=fallback_timeout_s)
 
 
 # ---- Public API -----------------------------------------------------------
 
-def transpile(text: str) -> tuple[str, int]:
+def transpile(text: str, fallback_timeout_s: int = DEFAULT_OSASCRIPT_TIMEOUT_S) -> tuple[str, int]:
     """Rewrite osascript+System Events lines in `text` to ax_helper calls.
 
     Returns (rewritten_text, num_substitutions). Lines that don't match a
     known pattern are left untouched.
+
+    `fallback_timeout_s` sets the `with timeout of N seconds` applied to
+    osascript bodies that hit the fallback converter. Pass
+    PRE_COMMAND_OSASCRIPT_TIMEOUT_S when transpiling pre_command lines.
     """
     count = 0
 
@@ -402,7 +407,7 @@ def transpile(text: str) -> tuple[str, int]:
         nonlocal count
         applescript = m.group(1)
         decoded = applescript.replace(r"'\''", "'")
-        replacement = _applescript_to_shell(decoded)
+        replacement = _applescript_to_shell(decoded, fallback_timeout_s=fallback_timeout_s)
         if replacement is None:
             return m.group(0)
         count += 1

@@ -14,7 +14,13 @@ import shlex
 
 import pytest
 
-from mmini.ax_transpile import HELPER, needs_rewrite, transpile
+from mmini.ax_transpile import (
+    HELPER,
+    DEFAULT_OSASCRIPT_TIMEOUT_S,
+    PRE_COMMAND_OSASCRIPT_TIMEOUT_S,
+    needs_rewrite,
+    transpile,
+)
 
 
 # Matches `echo <B64> | base64 -d | bash` anywhere in a string — emission
@@ -264,6 +270,20 @@ def test_needs_rewrite_predicate():
     assert needs_rewrite('osascript -e \'tell application "System Events" to beep\'')
     assert needs_rewrite('osascript -e \'tell application "Finder" to beep\'')
     assert not needs_rewrite('echo hello')
+
+
+def test_fallback_timeout_param():
+    """transpile(text, fallback_timeout_s=N) controls the `with timeout of N`
+    value in the emitted payload. Pre_commands use 30s; verifiers use 5s."""
+    src = 'osascript -e \'tell application "Notes" to count of notes\''
+
+    out_verifier, _ = transpile(src)
+    payload_verifier = _decode_emission(out_verifier)
+    assert f"with timeout of {DEFAULT_OSASCRIPT_TIMEOUT_S} seconds" in payload_verifier
+
+    out_pre, _ = transpile(src, fallback_timeout_s=PRE_COMMAND_OSASCRIPT_TIMEOUT_S)
+    payload_pre = _decode_emission(out_pre)
+    assert f"with timeout of {PRE_COMMAND_OSASCRIPT_TIMEOUT_S} seconds" in payload_pre
 
 
 if __name__ == "__main__":
