@@ -117,143 +117,100 @@ class TasksClient:
 
 
 def _build_test_sh(task: Task) -> str:
-    """Generate test.sh from the task's grader or grading candidates.
+    """Generate test.sh. iOS = JSON checker DSL POSTed to /grade.
+    macOS = bash, perl-alarm wrap + temp-file capture (matches macosworld)."""
+    if task.platform == "ios":
+        return _build_test_sh_ios(task)
+    return _build_test_sh_macos(task)
 
-    macOS test.sh runs inside the VM (Harbor mounts /tests there), so we
-    detect the SIP-friendly /tmp/harbor prefix and run the grader as bash.
 
-    iOS test.sh runs on the host (the simulator has no shell). When the
-    grader is a JSON checker DSL we POST to the gateway's /grade endpoint
-    instead of running it as bash — that's where the same evaluator the
-    replay path uses lives.
-    """
-    is_ios = task.platform == "ios"
+def _build_test_sh_ios(task: Task) -> str:
     grader = (task.grader or "").strip()
-    is_dsl = is_ios and grader.startswith("[")
-
     lines = [
         "#!/bin/bash",
-        "# Auto-generated grading script — never use set -e (must always write reward file)",
+        "# iOS test.sh — runs on the harbor host, evaluator runs server-side at /grade.",
+        'REWARD="${HARBOR_REWARD_FILE:-./reward.txt}"',
+        'GRADER_LOG="${HARBOR_GRADER_LOG:-./grader.log}"',
+        ': "${GATEWAY_URL:?GATEWAY_URL is required}"',
+        ': "${SANDBOX_ID:?SANDBOX_ID is required}"',
+        ': "${MMINI_API_KEY:?MMINI_API_KEY is required}"',
         "",
     ]
-    if is_ios:
+    if not grader.startswith("["):
         lines += [
-            "# iOS: grader runs on the harbor host; sandbox is reachable via gateway.",
-            'REWARD="${HARBOR_REWARD_FILE:-./reward.txt}"',
-            'GRADER_LOG="${HARBOR_GRADER_LOG:-./grader.log}"',
-            ': "${GATEWAY_URL:?GATEWAY_URL is required}"',
-            ': "${SANDBOX_ID:?SANDBOX_ID is required}"',
-            ': "${MMINI_API_KEY:?MMINI_API_KEY is required}"',
-            "",
+            "# iOS graders must be a JSON checker DSL (array of {kind, ...} specs).",
+            'echo "0" > "$REWARD"',
+            'echo "Score: 0 — iOS task has no DSL grader" >> "$GRADER_LOG"',
+            'echo "Score: 0 (no DSL grader)"',
         ]
-    else:
-        lines += [
-            "# Detect path prefix (macOS SIP blocks /tests, so mmini uses /tmp/harbor)",
-            'PREFIX=""',
-            '[ -d "/tmp/harbor/logs" ] && PREFIX="/tmp/harbor"',
-            'REWARD="${PREFIX}/logs/verifier/reward.txt"',
-            'GRADER_LOG="${PREFIX}/logs/verifier/grader.log"',
-            "",
-        ]
+        return "\n".join(lines) + "\n"
 
-    if is_dsl:
-        # iOS DSL grader: hit the gateway's /grade endpoint with the specs
-        # and read passed/results from the JSON response.
-        specs_json = grader.replace("'", "'\\''")
-        lines.append("# iOS DSL grader → POST specs to /grade, evaluator runs server-side")
-        lines.append(f"SPECS='{specs_json}'")
-        lines.append('PAYLOAD=$(printf \'{"specs": %s}\' "$SPECS")')
-        lines.append('RESP=$(curl -sS -H "Authorization: Bearer $MMINI_API_KEY" '
-                     '-H "Content-Type: application/json" -X POST '
-                     '"$GATEWAY_URL/v1/sandboxes/$SANDBOX_ID/grade" '
-                     '--data-binary "$PAYLOAD")')
-        lines.append('echo "$RESP" >> "$GRADER_LOG"')
-        lines.append('if echo "$RESP" | python3 -c "import sys,json; sys.exit(0 if json.load(sys.stdin).get(\\"passed\\") else 1)"; then')
-        lines.append('  echo "1" > "$REWARD"')
-        lines.append('  echo "Score: 1"')
-        lines.append("  exit 0")
-        lines.append("fi")
-        lines.append("")
-        lines.append('echo "0" > "$REWARD"')
-        lines.append('echo "Score: 0 — grader response: $(echo "$RESP" | head -c 500)"')
-    elif grader and is_ios:
-        # iOS shell grader: runs on host, queries sandbox API directly.
-        # No perl alarm — iOS test.sh runs in the harbor container, not a VM.
-        escaped = grader.replace("'", "'\\''")
-        lines.append("# iOS shell grader — runs on host, queries sandbox API directly")
-        lines.append(f"GRADER_OUTPUT=$(bash -c '{escaped}' 2>&1)")
-        lines.append('echo "$GRADER_OUTPUT" >> "$GRADER_LOG"')
-        lines.append('if echo "$GRADER_OUTPUT" | grep -qi "true"; then')
-        lines.append('  echo "1" > "$REWARD"')
-        lines.append('  echo "Score: 1"')
-        lines.append("  exit 0")
-        lines.append("fi")
-        lines.append("")
-        lines.append('echo "0" > "$REWARD"')
-        lines.append('echo "Score: 0 — grader output: $GRADER_OUTPUT" | head -c 500')
-    elif grader:
-        # macOS bash grader. Wrap in perl alarm + temp-file capture, same
-        # pattern macosworld/adapter.py uses — kills hung osascript/AX calls
-        # at 5s and avoids pipe-deadlock when perl kills bash mid-pipe.
-        escaped = grader.replace("'", "'\\''")
-        lines.append("# macOS bash grader — perl-alarm wrap kills hung AX/osascript at 5s")
-        lines.append("_r=$(mktemp)")
-        lines.append(f"perl -e 'alarm 5; exec @ARGV' -- bash -c '{escaped}' > \"$_r\" 2>>\"$GRADER_LOG\"")
-        lines.append('if grep -qi "true" "$_r" 2>/dev/null; then')
-        lines.append('  rm -f "$_r"')
-        lines.append('  echo "1" > "$REWARD"')
-        lines.append('  echo "Score: 1"')
-        lines.append("  exit 0")
-        lines.append("fi")
-        lines.append('rm -f "$_r"')
-        lines.append("")
-        lines.append('echo "0" > "$REWARD"')
-        lines.append('echo "Score: 0"')
-    elif task.grading_candidates:
-        # Fall back to per-check grading_candidates with score 100. macOS gets
-        # the same perl-alarm + temp-file capture macosworld uses; iOS uses
-        # plain bash -c (no SIP, no AX hangs).
-        checks = [gc["command"] for gc in task.grading_candidates if gc.get("score", 0) == 100]
-        for i, cmd in enumerate(checks):
-            escaped = cmd.replace("'", "'\\''")
-            lines.append(f"# Check {i + 1}")
-            if is_ios:
-                lines.append(f"CHECK_OUTPUT=$(bash -c '{escaped}' 2>&1)")
-                lines.append(f'echo "check {i + 1}: $CHECK_OUTPUT" >> "$GRADER_LOG"')
-                lines.append("if echo \"$CHECK_OUTPUT\" | grep -qi 'true'; then")
-                lines.append('  echo "1" > "$REWARD"')
-                lines.append('  echo "Score: 1"')
-                lines.append("  exit 0")
-                lines.append("fi")
-            else:
-                lines.append("_r=$(mktemp)")
-                lines.append(f"perl -e 'alarm 5; exec @ARGV' -- bash -c '{escaped}' > \"$_r\" 2>>\"$GRADER_LOG\"")
-                lines.append('if grep -qi "true" "$_r" 2>/dev/null; then')
-                lines.append('  rm -f "$_r"')
-                lines.append('  echo "1" > "$REWARD"')
-                lines.append('  echo "Score: 1"')
-                lines.append("  exit 0")
-                lines.append("fi")
-                lines.append('rm -f "$_r"')
-            lines.append("")
-        lines.append('echo "0" > "$REWARD"')
-        lines.append('echo "Score: 0"')
+    specs = grader.replace("'", "'\\''")
+    lines += [
+        f"SPECS='{specs}'",
+        'PAYLOAD=$(printf \'{"specs": %s}\' "$SPECS")',
+        ('RESP=$(curl -sS -H "Authorization: Bearer $MMINI_API_KEY" '
+         '-H "Content-Type: application/json" -X POST '
+         '"$GATEWAY_URL/v1/sandboxes/$SANDBOX_ID/grade" --data-binary "$PAYLOAD")'),
+        'echo "$RESP" >> "$GRADER_LOG"',
+        ('if echo "$RESP" | python3 -c "import sys,json; '
+         'sys.exit(0 if json.load(sys.stdin).get(\\"passed\\") else 1)"; then'),
+        '  echo "1" > "$REWARD"',
+        '  echo "Score: 1"',
+        "  exit 0",
+        "fi",
+        "",
+        'echo "0" > "$REWARD"',
+        'echo "Score: 0 — grader response: $(echo "$RESP" | head -c 500)"',
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _build_test_sh_macos(task: Task) -> str:
+    lines = [
+        "#!/bin/bash",
+        "# macOS test.sh — runs inside the VM via Harbor.",
+        'PREFIX=""',
+        '[ -d "/tmp/harbor/logs" ] && PREFIX="/tmp/harbor"',
+        'REWARD="${PREFIX}/logs/verifier/reward.txt"',
+        'GRADER_LOG="${PREFIX}/logs/verifier/grader.log"',
+        "",
+    ]
+
+    # Single grader wins; otherwise fall back to score=100 candidates.
+    grader = (task.grader or "").strip()
+    if grader:
+        cmds = [grader]
     else:
-        lines.append("# No grader available — task is not runnable")
-        lines.append('echo "0" > "$REWARD"')
-        lines.append('echo "Score: 0 (no grader)"')
+        cmds = [gc["command"] for gc in task.grading_candidates if gc.get("score", 0) == 100]
+
+    if not cmds:
+        lines += ['echo "0" > "$REWARD"', 'echo "Score: 0 (no grader)"']
+    else:
+        for i, cmd in enumerate(cmds, 1):
+            escaped = cmd.replace("'", "'\\''")
+            lines += [
+                f"# Check {i}",
+                "_r=$(mktemp)",
+                f"perl -e 'alarm 5; exec @ARGV' -- bash -c '{escaped}' > \"$_r\" 2>>\"$GRADER_LOG\"",
+                'if grep -qi "true" "$_r" 2>/dev/null; then',
+                '  rm -f "$_r"',
+                '  echo "1" > "$REWARD"',
+                '  echo "Score: 1"',
+                "  exit 0",
+                "fi",
+                'rm -f "$_r"',
+                "",
+            ]
+        lines += ['echo "0" > "$REWARD"', 'echo "Score: 0"']
 
     out = "\n".join(lines) + "\n"
-    # Match macosworld post-processing for macOS scripts: transpile osascript
-    # AX patterns through ax_helper, raise curl timeouts. iOS test.sh runs in
-    # the harbor container — it doesn't need either pass.
-    if not is_ios:
-        try:
-            from .ax_transpile import patch_curl_timeouts, transpile
-            out, _ = transpile(out)
-            out = patch_curl_timeouts(out)[0]
-        except Exception:
-            pass
+    try:
+        from .ax_transpile import patch_curl_timeouts, transpile
+        out, _ = transpile(out)
+        out = patch_curl_timeouts(out)[0]
+    except Exception:
+        pass
     return out
 
 
