@@ -1,0 +1,18 @@
+[metadata]
+author_name = "mmini-collect"
+difficulty = "unknown"
+category = "desktop-automation"
+tags = {{TAGS}}
+platform = "{{PLATFORM}}"
+runnable = {{RUNNABLE}}
+
+[verifier]
+timeout_sec = 1800
+
+[agent]
+timeout_sec = 1800
+
+[environment]
+cpus = 4
+memory_mb = 8192
+allow_internet = true
