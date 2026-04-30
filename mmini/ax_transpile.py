@@ -226,7 +226,7 @@ def _emit_helper_call(op: str, *args: str) -> str:
     payload = (
         f"B=$(echo {body_b64} | base64 -d); "
         f"P=$(echo {parser_b64} | base64 -d); "
-        f"curl -s -X POST http://127.0.0.1:8000/cmd "
+        f"curl -s -m 5 -X POST http://127.0.0.1:8000/cmd "
         f"-H Content-Type:application/json "
         f'--data-raw "$B" 2>/dev/null '
         f'| python3 -c "$P"'
@@ -448,6 +448,37 @@ def needs_rewrite(text: str) -> bool:
     """Any `osascript -e` invocation gets rewritten now (the fallback
     converter wraps everything with `with timeout of N seconds`)."""
     return bool(_OSASCRIPT_RE.search(text))
+
+
+_B64_PAYLOAD_RE = re.compile(r"echo ([A-Za-z0-9+/=]+) \| base64 -d \| bash")
+
+
+def patch_curl_timeouts(text: str) -> tuple[str, int]:
+    """Add -m 5 to `curl -s -X POST` calls that are buried inside base64-encoded
+    payloads (the ax_helper emission style).  Used by mmini._run_setup to harden
+    already-baked test.sh files whose payloads were generated before the -m flag
+    was added to _emit_helper_call.
+
+    Returns (patched_text, num_patched).
+    """
+    count = 0
+
+    def _repatch(m: re.Match) -> str:
+        nonlocal count
+        try:
+            decoded = base64.b64decode(m.group(1)).decode()
+        except Exception:
+            return m.group(0)
+        if "curl -s -X POST" not in decoded:
+            return m.group(0)
+        patched = decoded.replace("curl -s -X POST", "curl -s -m 5 -X POST")
+        if patched == decoded:
+            return m.group(0)
+        count += 1
+        new_b64 = base64.b64encode(patched.encode()).decode()
+        return f"echo {new_b64} | base64 -d | bash"
+
+    return _B64_PAYLOAD_RE.sub(_repatch, text), count
 
 
 def needs_exec_ax(text: str) -> bool:
