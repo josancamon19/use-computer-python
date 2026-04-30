@@ -60,7 +60,6 @@ class Task:
     steps: list
     app_state: dict
     accessibility_tree: dict | None = None
-    grading_candidates: list | None = None
     grader: str = ""
 
     @property
@@ -109,7 +108,6 @@ class TasksClient:
             steps=d.get("steps", []),
             app_state=d.get("app_state", {}),
             accessibility_tree=d.get("accessibility_tree"),
-            grading_candidates=d.get("grading_candidates"),
             grader=d.get("grader", ""),
         )
 
@@ -141,17 +139,10 @@ def _build_test_sh_ios(task: Task) -> str:
 
 def _build_test_sh_macos(task: Task) -> str:
     grader = (task.grader or "").strip()
-    if grader:
-        cmds = [grader]
-    else:
-        candidates = task.grading_candidates or []
-        cmds = [gc["command"] for gc in candidates if gc.get("score", 0) == 100]
-
+    if not grader:
+        return _tpl("test_macos_nograder.sh")
     check_tpl = _tpl("test_macos_check.sh")
-    checks = "\n".join(
-        _render(check_tpl, N=str(i), CMD=cmd.replace("'", "'\\''"))
-        for i, cmd in enumerate(cmds, 1)
-    )
+    checks = _render(check_tpl, N="1", CMD=grader.replace("'", "'\\''"))
     out = _render(_tpl("test_macos.sh"), CHECKS=checks)
     out, _ = transpile(out)
     out, _ = patch_curl_timeouts(out)
@@ -179,7 +170,6 @@ def task_to_harbor(task: Task, output_root: Path, *, overwrite: bool = False) ->
             tests/
                 test.sh
                 setup/
-                    config.json
                     pre_command.sh
     """
     output_root = Path(output_root)
@@ -214,14 +204,19 @@ def task_to_harbor(task: Task, output_root: Path, *, overwrite: bool = False) ->
     )
     (task_dir / "task.toml").write_text(toml, encoding="utf-8")
 
-    # tests/setup/config.json
-    config = {
-        "task_id": task.id,
-        "platform": task.platform,
-        "before_action_delay_seconds": 10,
-        "before_grading_delay_seconds": 5,
-    }
-    (setup_dir / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    # actions.json — flat {steps: [{function, args}, ...]} for the debug agent's
+    # replay path. Pulls the first tool_call from each ATIF step; non-tool steps
+    # (text-only assistant messages) drop out.
+    actions = []
+    for step in task.steps or []:
+        tcs = step.get("tool_calls") if isinstance(step, dict) else None
+        if not tcs:
+            continue
+        tc = tcs[0]
+        actions.append({"function": tc.get("function"), "args": tc.get("args") or {}})
+    (task_dir / "actions.json").write_text(
+        json.dumps({"steps": actions}, indent=2) + "\n", encoding="utf-8"
+    )
 
     # tests/setup/pre_command.sh
     pre_cmd_path = setup_dir / "pre_command.sh"
