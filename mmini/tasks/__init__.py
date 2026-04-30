@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +11,8 @@ from pathlib import Path
 import httpx
 
 from mmini.ax_transpile import patch_curl_timeouts, transpile
+
+logger = logging.getLogger(__name__)
 
 _TEMPLATES = Path(__file__).parent / "templates"
 
@@ -149,14 +152,18 @@ def _build_test_sh_macos(task: Task) -> str:
     return out
 
 
-def _build_pre_command_sh(task: Task) -> str:
-    # `defaults delete` fails on fresh VMs (key never set) — skip it.
-    cmds = [
-        f"# skipped (fresh VM already in expected state): {c}"
-        if "defaults delete" in c else c
-        for c in task.setup_commands
-    ]
-    return _render(_tpl("pre_command.sh"), COMMANDS="\n".join(cmds))
+def _build_pre_command_sh(task: Task) -> str | None:
+    # `defaults delete` fails on fresh VMs (key never set). Tasks recording such
+    # commands likely rely on the cleanup; skip the whole task instead of
+    # silently shipping a broken pre_command.
+    for c in task.setup_commands:
+        if "defaults delete" in c:
+            raise ValueError(
+                f"task setup_commands contain `defaults delete` — skipping export: {c!r}"
+            )
+    if not task.setup_commands:
+        return None
+    return _render(_tpl("pre_command.sh"), COMMANDS="\n".join(task.setup_commands))
 
 
 def task_to_harbor(task: Task, output_root: Path, *, overwrite: bool = False) -> Path:
@@ -179,6 +186,11 @@ def task_to_harbor(task: Task, output_root: Path, *, overwrite: bool = False) ->
 
     if task_dir.exists() and not overwrite:
         raise FileExistsError(f"Already exists: {task_dir}")
+
+    # Build pre_command early so we fail before creating any dirs if all setup
+    # commands got stripped (raises ValueError).
+    pre_cmd = _build_pre_command_sh(task)
+
     if task_dir.exists():
         shutil.rmtree(task_dir)
 
@@ -186,8 +198,6 @@ def task_to_harbor(task: Task, output_root: Path, *, overwrite: bool = False) ->
     (task_dir / "environment").mkdir()
     tests_dir = task_dir / "tests"
     tests_dir.mkdir()
-    setup_dir = tests_dir / "setup"
-    setup_dir.mkdir()
 
     # instruction.md
     (task_dir / "instruction.md").write_text(task.instruction + "\n", encoding="utf-8")
@@ -218,10 +228,13 @@ def task_to_harbor(task: Task, output_root: Path, *, overwrite: bool = False) ->
         json.dumps({"steps": actions}, indent=2) + "\n", encoding="utf-8"
     )
 
-    # tests/setup/pre_command.sh
-    pre_cmd_path = setup_dir / "pre_command.sh"
-    pre_cmd_path.write_text(_build_pre_command_sh(task), encoding="utf-8")
-    pre_cmd_path.chmod(0o755)
+    # tests/setup/pre_command.sh — skip directory entirely if no setup commands
+    if pre_cmd:
+        setup_dir = tests_dir / "setup"
+        setup_dir.mkdir()
+        pre_cmd_path = setup_dir / "pre_command.sh"
+        pre_cmd_path.write_text(pre_cmd, encoding="utf-8")
+        pre_cmd_path.chmod(0o755)
 
     # tests/test.sh
     test_path = tests_dir / "test.sh"
