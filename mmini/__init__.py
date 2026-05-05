@@ -1,4 +1,4 @@
-from mmini.client import AsyncMmini, Mmini
+from mmini.client import AsyncMmini, Mmini, RunStatus
 from mmini.models import (
     ActionResult,
     ActResult,
@@ -34,6 +34,7 @@ __all__ = [
     "MacOSSandbox",
     "Mmini",
     "RecordingInfo",
+    "RunStatus",
     "Sandbox",
     "SandboxType",
     "Task",

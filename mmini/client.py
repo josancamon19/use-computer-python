@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from typing import Literal, overload
+import asyncio
+import time
+from dataclasses import dataclass
+from typing import Any, Literal, overload
 
 import httpx
 
@@ -15,6 +18,49 @@ from mmini.sandbox import (
     SandboxType,
 )
 from mmini.tasks import TasksClient
+
+
+@dataclass
+class RunStatus:
+    """Status of an ad-hoc or model run."""
+
+    id: str
+    status: str  # "starting" | "running" | "completed" | "failed"
+    model: str = ""
+    task_id: str = ""
+    sandbox_id: str = ""
+    mini_ip: str = ""
+    mini_hostname: str = ""
+    max_steps: int = 0
+    reward: float | None = None
+    error: str = ""
+    n_steps: int | None = None
+    n_actions: int | None = None
+    started_at: str = ""
+    finished_at: str | None = None
+
+    @property
+    def done(self) -> bool:
+        return self.status in ("completed", "failed")
+
+    @staticmethod
+    def _from_dict(d: dict[str, Any]) -> RunStatus:
+        return RunStatus(
+            id=d.get("id", ""),
+            status=d.get("status", ""),
+            model=d.get("model", ""),
+            task_id=d.get("task_id", ""),
+            sandbox_id=d.get("sandbox_id", ""),
+            mini_ip=d.get("mini_ip", ""),
+            mini_hostname=d.get("mini_hostname", ""),
+            max_steps=d.get("max_steps", 0),
+            reward=d.get("reward"),
+            error=d.get("error", ""),
+            n_steps=d.get("n_steps"),
+            n_actions=d.get("n_actions"),
+            started_at=d.get("started_at", ""),
+            finished_at=d.get("finished_at"),
+        )
 
 
 class Mmini:
@@ -102,6 +148,56 @@ class Mmini:
             vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
             ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
         )
+
+    def adhoc_run(
+        self,
+        instruction: str,
+        *,
+        platform: str = "macos",
+        model: str = "claude-sonnet-4-6",
+        max_steps: int = 50,
+        files: list[dict[str, str]] | None = None,
+        poll: bool = True,
+        poll_interval: float = 3.0,
+    ) -> RunStatus:
+        """Run an ad-hoc task: spin up a sandbox and drive a model against a free-form instruction.
+
+        Args:
+            instruction: What the agent should do.
+            platform: "macos" or "ios".
+            model: Model to use.
+            max_steps: Max agent steps.
+            files: Optional list of {remote_path, content_b64} to pre-upload.
+            poll: If True, block until the run finishes.
+            poll_interval: Seconds between status polls.
+        """
+        body: dict[str, Any] = {
+            "instruction": instruction,
+            "platform": platform,
+            "model": model,
+            "max_steps": max_steps,
+        }
+        if files:
+            body["files"] = files
+        resp = self._http.post("/admin/adhoc-runs/", json=body, timeout=30.0)
+        resp.raise_for_status()
+        status = RunStatus._from_dict(resp.json())
+        if not poll:
+            return status
+        return self._poll_run(status.id, poll_interval)
+
+    def get_run(self, run_id: str) -> RunStatus:
+        """Get current status of a model run."""
+        resp = self._http.get(f"/admin/tasks/model-runs/{run_id}")
+        resp.raise_for_status()
+        return RunStatus._from_dict(resp.json())
+
+    def _poll_run(self, run_id: str, interval: float = 3.0) -> RunStatus:
+        while True:
+            status = self.get_run(run_id)
+            if status.done:
+                return status
+            time.sleep(interval)
 
     def close(self):
         self._http.close()
@@ -198,6 +294,46 @@ class AsyncMmini:
             vnc_url=f"{self._base_url}{data.get('vnc_url', '')}",
             ssh_url=f"{self._base_url}{data.get('ssh_url', '')}",
         )
+
+    async def adhoc_run(
+        self,
+        instruction: str,
+        *,
+        platform: str = "macos",
+        model: str = "claude-sonnet-4-6",
+        max_steps: int = 50,
+        files: list[dict[str, str]] | None = None,
+        poll: bool = True,
+        poll_interval: float = 3.0,
+    ) -> RunStatus:
+        """Run an ad-hoc task: spin up a sandbox and drive a model against a free-form instruction."""
+        body: dict[str, Any] = {
+            "instruction": instruction,
+            "platform": platform,
+            "model": model,
+            "max_steps": max_steps,
+        }
+        if files:
+            body["files"] = files
+        resp = await self._http.post("/admin/adhoc-runs/", json=body, timeout=30.0)
+        resp.raise_for_status()
+        status = RunStatus._from_dict(resp.json())
+        if not poll:
+            return status
+        return await self._poll_run(status.id, poll_interval)
+
+    async def get_run(self, run_id: str) -> RunStatus:
+        """Get current status of a model run."""
+        resp = await self._http.get(f"/admin/tasks/model-runs/{run_id}")
+        resp.raise_for_status()
+        return RunStatus._from_dict(resp.json())
+
+    async def _poll_run(self, run_id: str, interval: float = 3.0) -> RunStatus:
+        while True:
+            status = await self.get_run(run_id)
+            if status.done:
+                return status
+            await asyncio.sleep(interval)
 
     async def close(self):
         await self._http.aclose()
