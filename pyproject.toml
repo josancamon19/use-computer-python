@@ -34,7 +34,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://use.computer"
-Documentation = "https://docs.use.computer"
+Documentation = "https://api.use.computer/docs"
 Repository = "https://github.com/josancamon19/use-computer-python"
 
 [tool.hatch.build.targets.wheel]
