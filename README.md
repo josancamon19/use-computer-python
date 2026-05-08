@@ -40,6 +40,8 @@ finally:
     computer.close()
 ```
 
+In runner configs, use `platform: ios`; the runner calls the iOS SDK create path under the hood.
+
 ## Action DSL
 
 Actions are dotted method calls plus args/kwargs. They are useful when a model emits tool-like steps. Given an open macOS `sandbox`:
