@@ -75,4 +75,4 @@ Docs: https://api.use.computer/docs
 
 OpenAPI: https://api.use.computer/openapi.yaml
 
-Runner: https://github.com/josancamon19/mmini-runner
+Examples: https://github.com/josancamon19/use-computer-examples
