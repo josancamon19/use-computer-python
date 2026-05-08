@@ -34,8 +34,8 @@ dev = [
 
 [project.urls]
 Homepage = "https://use.computer"
-Documentation = "https://github.com/josancamon19/mmini-sdk#readme"
-Repository = "https://github.com/josancamon19/mmini-sdk"
+Documentation = "https://docs.use.computer"
+Repository = "https://github.com/josancamon19/use-computer-python"
 
 [tool.hatch.build.targets.wheel]
 packages = ["mmini", "use_computer"]
