@@ -7,6 +7,7 @@ from typing import Any, Literal, overload
 
 import httpx
 
+from mmini.errors import _araise_if_unsupported, _raise_if_unsupported
 from mmini.retry import AsyncRetryTransport, RetryTransport
 from mmini.sandbox import (
     AsyncIOSSandbox,
@@ -77,6 +78,7 @@ class Mmini:
             headers=headers,
             timeout=60.0,
             transport=RetryTransport(httpx.HTTPTransport()),
+            event_hooks={"response": [_raise_if_unsupported]},
         )
         self.tasks = TasksClient(self._http)
 
@@ -222,6 +224,7 @@ class AsyncMmini:
             headers=headers,
             timeout=60.0,
             transport=AsyncRetryTransport(httpx.AsyncHTTPTransport()),
+            event_hooks={"response": [_araise_if_unsupported]},
         )
 
     async def platforms(self) -> dict:

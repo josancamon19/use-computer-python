@@ -1,4 +1,5 @@
 from mmini.client import AsyncMmini, Mmini, RunStatus
+from mmini.errors import MminiError, PlatformNotSupportedError
 from mmini.models import (
     ActionResult,
     ActResult,
@@ -33,6 +34,8 @@ __all__ = [
     "IOSSandbox",
     "MacOSSandbox",
     "Mmini",
+    "MminiError",
+    "PlatformNotSupportedError",
     "RecordingInfo",
     "RunStatus",
     "Sandbox",
