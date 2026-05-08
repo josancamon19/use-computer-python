@@ -3,14 +3,53 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mmini"
-version = "0.1.0"
-description = "Python SDK for mmini — macOS Computer Use API"
+name = "use-computer"
+version = "0.0.1"
+description = "Python SDK for the use.computer macOS and iOS Computer Use API"
+readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["httpx[http2]>=0.27"]
+authors = [{ name = "use.computer" }]
+dependencies = ["httpx>=0.27"]
+keywords = ["computer-use", "macos", "ios", "automation", "sandbox"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4",
+    "pytest>=9",
+    "ruff>=0.15",
+    "twine>=6",
+    "ty>=0.0.34",
+]
+
+[project.urls]
+Homepage = "https://use.computer"
+Documentation = "https://github.com/josancamon19/mmini-sdk#readme"
+Repository = "https://github.com/josancamon19/mmini-sdk"
 
 [tool.hatch.build.targets.wheel]
-packages = ["mmini"]
+packages = ["mmini", "use_computer"]
+
+[tool.hatch.build]
+exclude = [
+    "/.github",
+    "/.pytest_cache",
+    "/.ruff_cache",
+    "/.venv",
+    "/dist",
+    "/results",
+    "/mmini/test_*.py",
+]
 
 [tool.ruff]
 target-version = "py310"

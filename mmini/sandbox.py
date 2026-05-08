@@ -158,8 +158,14 @@ class MacOSSandbox(Sandbox):
     """macOS VM sandbox — full mouse, keyboard, SSH exec, VNC."""
 
     def __init__(
-        self, sandbox_id: str, http: httpx.Client, *, vnc_url: str = "", ssh_url: str = "",
-        vm_ip: str = "", host: str = "",
+        self,
+        sandbox_id: str,
+        http: httpx.Client,
+        *,
+        vnc_url: str = "",
+        ssh_url: str = "",
+        vm_ip: str = "",
+        host: str = "",
     ):
         super().__init__(sandbox_id, SandboxType.MACOS, http, vnc_url=vnc_url, ssh_url=ssh_url)
         self.vm_ip = vm_ip
@@ -204,7 +210,9 @@ class MacOSSandbox(Sandbox):
         Sparser env than `exec_ssh` — set $PATH explicitly inside your
         command if you need brew binaries.
         """
-        resp = self._http.post(f"{self._prefix}/exec_ax", json={"command": command}, timeout=timeout)
+        resp = self._http.post(
+            f"{self._prefix}/exec_ax", json={"command": command}, timeout=timeout
+        )
         resp.raise_for_status()
         return ExecResult.from_dict(resp.json())
 
@@ -327,8 +335,14 @@ class AsyncMacOSSandbox(AsyncSandbox):
     """Async macOS VM sandbox."""
 
     def __init__(
-        self, sandbox_id: str, http: httpx.AsyncClient, *, vnc_url: str = "", ssh_url: str = "",
-        vm_ip: str = "", host: str = "",
+        self,
+        sandbox_id: str,
+        http: httpx.AsyncClient,
+        *,
+        vnc_url: str = "",
+        ssh_url: str = "",
+        vm_ip: str = "",
+        host: str = "",
     ):
         super().__init__(sandbox_id, SandboxType.MACOS, http, vnc_url=vnc_url, ssh_url=ssh_url)
         self.vm_ip = vm_ip

@@ -3,3 +3,7 @@ __pycache__/
 results/
 dist/
 *.egg-info/
+.env
+.env.*
+!.env.example
+.venv/

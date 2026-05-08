@@ -10,11 +10,11 @@ Usage:
 
 import asyncio
 
-from mmini import AsyncMmini
+from use_computer import AsyncComputer
 
 
 async def main() -> None:
-    client = AsyncMmini()
+    client = AsyncComputer(base_url="http://localhost:8080")
     sandbox = await client.create()
     print(f"Created: {sandbox.sandbox_id}")
 
@@ -26,15 +26,15 @@ async def main() -> None:
     print("Uploaded scores.csv to Desktop")
 
     # Verify it's there
-    _, output = await sandbox.exec_ssh("cat /Users/lume/Desktop/scores.csv")
-    print(f"File contents:\n{output}")
+    result = await sandbox.exec_ssh("cat /Users/lume/Desktop/scores.csv")
+    print(f"File contents:\n{result.stdout}")
 
     # Upload a script and run it
     script = b"#!/bin/bash\necho 'Hello from uploaded script!'\nls ~/Desktop/\n"
     await sandbox.upload_bytes(script, "/Users/lume/Desktop/check.sh")
     await sandbox.exec_ssh("chmod +x /Users/lume/Desktop/check.sh")
-    _, output = await sandbox.exec_ssh("/Users/lume/Desktop/check.sh")
-    print(f"Script output:\n{output}")
+    result = await sandbox.exec_ssh("/Users/lume/Desktop/check.sh")
+    print(f"Script output:\n{result.stdout}")
 
     await sandbox.close()
     await client.close()

@@ -10,11 +10,11 @@ Usage:
 
 import asyncio
 
-from mmini import AsyncMmini
+from use_computer import AsyncComputer
 
 
 async def main() -> None:
-    client = AsyncMmini()
+    client = AsyncComputer(base_url="http://localhost:8080")
     sandbox = await client.create()
     print(f"Created: {sandbox.sandbox_id}")
 
@@ -32,14 +32,14 @@ async def main() -> None:
     await sandbox.exec_ssh("defaults write com.apple.dock autohide -bool true && killall Dock")
 
     # Run any shell command
-    _, output = await sandbox.exec_ssh("sw_vers -productVersion")
-    print(f"macOS version: {output.strip()}")
+    result = await sandbox.exec_ssh("sw_vers -productVersion")
+    print(f"macOS version: {result.stdout.strip()}")
 
     # Verify the note was created
-    _, notes = await sandbox.exec_ssh(
+    notes = await sandbox.exec_ssh(
         "osascript -e 'tell application \"Notes\" to get the name of every note'"
     )
-    print(f"Notes: {notes.strip()}")
+    print(f"Notes: {notes.stdout.strip()}")
 
     # Take a screenshot to see the result
     img = await sandbox.screenshot.take_full_screen()

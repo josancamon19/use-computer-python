@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 import json
 import logging
 import shutil
@@ -77,7 +78,7 @@ class TasksClient:
     def __init__(self, http: httpx.Client):
         self._http = http
 
-    def list(self, limit: int = 50, offset: int = 0) -> list[TaskSummary]:
+    def list(self, limit: int = 50, offset: int = 0) -> builtins.list[TaskSummary]:
         resp = self._http.get("/admin/tasks", params={"limit": limit, "offset": offset})
         resp.raise_for_status()
         return [
@@ -124,6 +125,7 @@ class TasksClient:
         overwrite: bool = False,
     ) -> Path:
         task = self.get(task_id)
+
         # Fetch each persisted upload via /admin/tasks/{id}/files/{name}.
         # Returns None on 404 — task_to_harbor logs + skips.
         def fetch_file(local_name: str) -> bytes | None:
@@ -131,6 +133,7 @@ class TasksClient:
             if r.status_code != 200:
                 return None
             return r.content
+
         return task_to_harbor(task, Path(output_dir), overwrite=overwrite, fetch_file=fetch_file)
 
 
@@ -262,14 +265,16 @@ def task_to_harbor(
     # collect time. The runner's setup.py reads manifest.json and uploads
     # each entry to its remote_path before pre_command runs.
     upload_actions = [
-        sa for sa in (task.setup_actions or [])
+        sa
+        for sa in (task.setup_actions or [])
         if (sa.get("action_type") if isinstance(sa, dict) else None) == "upload_file"
     ]
     if upload_actions:
         if fetch_file is None:
             logger.warning(
                 "task has %d upload_file actions but no fetch_file callback — "
-                "skipping (runner won't have collected files)", len(upload_actions),
+                "skipping (runner won't have collected files)",
+                len(upload_actions),
             )
         else:
             files_dir = setup_dir / "files"
@@ -290,7 +295,8 @@ def task_to_harbor(
                 logger.info("exported file %s → %s (%dB)", local_name, remote_path, len(data))
             if manifest:
                 (files_dir / "manifest.json").write_text(
-                    json.dumps(manifest, indent=2) + "\n", encoding="utf-8",
+                    json.dumps(manifest, indent=2) + "\n",
+                    encoding="utf-8",
                 )
 
     # tests/test.sh

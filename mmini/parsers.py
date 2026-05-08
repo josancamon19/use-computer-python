@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from mmini.sandbox import Sandbox
@@ -33,10 +33,10 @@ class Action:
 
     def execute(self, sandbox: Sandbox) -> dict | bytes | None:
         parts = self.method.split(".")
-        obj = sandbox
+        obj: Any = sandbox
         for part in parts:
             obj = getattr(obj, part)
-        return obj(*self.args, **self.kwargs)  # pyright: ignore[reportCallIssue]
+        return obj(*self.args, **self.kwargs)
 
     def __repr__(self) -> str:
         arg_str = ", ".join(

@@ -1,0 +1,115 @@
+name: Publish to PyPI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact version to publish. Defaults to next vX.Y.Z patch tag, starting at 0.0.1.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-pypi
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - uses: astral-sh/setup-uv@v6
+
+      - run: uv run --group dev ruff format --check .
+      - run: uv run --group dev ruff check .
+      - run: uv run --group dev ty check .
+      - run: uv run --group dev pytest
+
+      - name: Set package version
+        id: version
+        env:
+          MANUAL_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if [ -n "$MANUAL_VERSION" ]; then
+            VERSION="$MANUAL_VERSION"
+          else
+            LATEST=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+            if [ -z "$LATEST" ]; then
+              VERSION="0.0.1"
+            else
+              BASE=${LATEST#v}
+              MAJOR=${BASE%%.*}
+              REST=${BASE#*.}
+              MINOR=${REST%%.*}
+              PATCH=${REST##*.}
+              VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+            fi
+          fi
+          TAG="v$VERSION"
+          uv version "$VERSION" --frozen
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - run: uv build --clear
+
+      - name: Check distribution metadata
+        run: uv run --group dev python -m twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: use-computer-dist
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish distribution
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/use-computer/
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: use-computer-dist
+          path: dist
+
+      - name: Publish with PyPI API token
+        if: env.PYPI_API_TOKEN != ''
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ env.PYPI_API_TOKEN }}
+
+      - name: Publish with PyPI Trusted Publishing
+        if: env.PYPI_API_TOKEN == ''
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          gh release create "v$VERSION" dist/* \
+            --target "$GITHUB_SHA" \
+            --title "use-computer $VERSION" \
+            --notes "Published use-computer $VERSION to PyPI."

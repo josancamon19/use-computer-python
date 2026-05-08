@@ -46,37 +46,38 @@ import base64
 import json
 import re
 import shlex
+from typing import cast
 
 # ---- Pattern parsing ------------------------------------------------------
 
 # AppleScript element kind → AX role. Must stay in sync with
 # scripts/images/ax_helper.py::_role_for_kind().
 _ROLE_MAP: dict[str, str | None] = {
-    "window":         "AXWindow",
-    "group":          "AXGroup",
-    "scroll area":    "AXScrollArea",
-    "toolbar":        "AXToolbar",
-    "menu button":    "AXMenuButton",
-    "button":         "AXButton",
-    "pop up button":  "AXPopUpButton",
-    "text field":     "AXTextField",
-    "text area":      "AXTextArea",
-    "checkbox":       "AXCheckBox",
-    "radio button":   "AXRadioButton",
-    "list":           "AXList",
-    "row":            "AXRow",
-    "tab":            "AXTab",
-    "menu item":      "AXMenuItem",
-    "static text":    "AXStaticText",
+    "window": "AXWindow",
+    "group": "AXGroup",
+    "scroll area": "AXScrollArea",
+    "toolbar": "AXToolbar",
+    "menu button": "AXMenuButton",
+    "button": "AXButton",
+    "pop up button": "AXPopUpButton",
+    "text field": "AXTextField",
+    "text area": "AXTextArea",
+    "checkbox": "AXCheckBox",
+    "radio button": "AXRadioButton",
+    "list": "AXList",
+    "row": "AXRow",
+    "tab": "AXTab",
+    "menu item": "AXMenuItem",
+    "static text": "AXStaticText",
     "splitter group": "AXSplitGroup",
-    "ui element":     None,
+    "ui element": None,
 }
 
 # Sort kinds by length descending so "menu button" wins over "button".
-_KINDS_SORTED = sorted(_ROLE_MAP.keys(), key=len, reverse=True)
+_KINDS_SORTED = cast(list[str], sorted(_ROLE_MAP.keys(), key=len, reverse=True))
 _KIND_ALT = "|".join(re.escape(k) for k in _KINDS_SORTED)
 _PATH_SEG_RE = re.compile(
-    r'(' + _KIND_ALT + r')\s+(?:"([^"]+)"|(\d+))',
+    r"(" + _KIND_ALT + r')\s+(?:"([^"]+)"|(\d+))',
     re.IGNORECASE,
 )
 
@@ -237,10 +238,12 @@ def _emit_helper_call(op: str, *args: str) -> str:
 
 # ---- Per-shape converters -------------------------------------------------
 
+
 def _try_attr_of_path(script: str) -> str | None:
     """get value of attribute "AX..." of <PATH>"""
     m = re.match(
-        r'\s*tell\s+application\s+"System Events"\s+to\s+get\s+value\s+of\s+attribute\s+"(AX[A-Za-z]+)"\s+of\s+(.+)\s*$',
+        r'\s*tell\s+application\s+"System Events"\s+to\s+get\s+value\s+of\s+'
+        r'attribute\s+"(AX[A-Za-z]+)"\s+of\s+(.+)\s*$',
         script,
         re.IGNORECASE | re.DOTALL,
     )
@@ -258,7 +261,8 @@ def _try_attr_of_path(script: str) -> str | None:
 def _try_attributes_of_path(script: str) -> str | None:
     """get value of attributes of <PATH>"""
     m = re.match(
-        r'\s*tell\s+application\s+"System Events"\s+to\s+get\s+value\s+of\s+attributes\s+of\s+(.+)\s*$',
+        r'\s*tell\s+application\s+"System Events"\s+to\s+get\s+value\s+of\s+'
+        r"attributes\s+of\s+(.+)\s*$",
         script,
         re.IGNORECASE | re.DOTALL,
     )
@@ -275,7 +279,8 @@ def _try_attributes_of_path(script: str) -> str | None:
 def _try_value_of_named_element(script: str) -> str | None:
     """tell process "X" to get value of <LEAF> of <PATH>"""
     m = re.match(
-        r'\s*tell\s+application\s+"System Events"\s+to\s+tell\s+process\s+"([^"]+)"\s+to\s+get\s+value\s+of\s+(.+)\s*$',
+        r'\s*tell\s+application\s+"System Events"\s+to\s+tell\s+process\s+'
+        r'"([^"]+)"\s+to\s+get\s+value\s+of\s+(.+)\s*$',
         script,
         re.IGNORECASE | re.DOTALL,
     )
@@ -291,7 +296,8 @@ def _try_value_of_named_element(script: str) -> str | None:
 def _try_front_process_name(script: str) -> str | None:
     """get name of first process whose frontmost is true"""
     if not re.match(
-        r'\s*tell\s+application\s+"System Events"\s+to\s+get\s+name\s+of\s+first\s+process\s+whose\s+frontmost\s+is\s+true\s*$',
+        r'\s*tell\s+application\s+"System Events"\s+to\s+get\s+name\s+of\s+'
+        r"first\s+process\s+whose\s+frontmost\s+is\s+true\s*$",
         script,
         re.IGNORECASE,
     ):
@@ -302,7 +308,9 @@ def _try_front_process_name(script: str) -> str | None:
 def _try_dock_items(script: str) -> str | None:
     """set VAR to name of every UI element of list 1 of application process "Dock" """
     if not re.match(
-        r'\s*tell\s+application\s+"System Events"\s+to\s+set\s+\w+\s+to\s+name\s+of\s+every\s+UI\s+element\s+of\s+list\s+1\s+of\s+application\s+process\s+"Dock"\s*$',
+        r'\s*tell\s+application\s+"System Events"\s+to\s+set\s+\w+\s+to\s+'
+        r"name\s+of\s+every\s+UI\s+element\s+of\s+list\s+1\s+of\s+application\s+"
+        r'process\s+"Dock"\s*$',
         script,
         re.IGNORECASE,
     ):
@@ -313,7 +321,8 @@ def _try_dock_items(script: str) -> str | None:
 def _try_keystroke(script: str) -> str | None:
     """keystroke "X" [using {modifier list}]. Single-character only."""
     m = re.match(
-        r'\s*tell\s+application\s+"System Events"\s+to\s+keystroke\s+"([^"]+)"(?:\s+using\s+\{([^}]+)\})?\s*$',
+        r'\s*tell\s+application\s+"System Events"\s+to\s+keystroke\s+'
+        r'"([^"]+)"(?:\s+using\s+\{([^}]+)\})?\s*$',
         script,
         re.IGNORECASE,
     )
@@ -385,7 +394,9 @@ _CONVERTERS = (
 )
 
 
-def _applescript_to_shell(script: str, fallback_timeout_s: int = DEFAULT_OSASCRIPT_TIMEOUT_S) -> str | None:
+def _applescript_to_shell(
+    script: str, fallback_timeout_s: int = DEFAULT_OSASCRIPT_TIMEOUT_S
+) -> str | None:
     """Try each specialised converter; fall back to timeout-wrapped osascript.
 
     `fallback_timeout_s` controls the `with timeout of N seconds` wrapper used
@@ -404,6 +415,7 @@ def _applescript_to_shell(script: str, fallback_timeout_s: int = DEFAULT_OSASCRI
 
 # ---- Public API -----------------------------------------------------------
 
+
 def transpile(text: str, fallback_timeout_s: int = DEFAULT_OSASCRIPT_TIMEOUT_S) -> tuple[str, int]:
     """Rewrite osascript+System Events lines in `text` to ax_helper calls.
 
@@ -419,10 +431,7 @@ def transpile(text: str, fallback_timeout_s: int = DEFAULT_OSASCRIPT_TIMEOUT_S) 
     def _replace(m: re.Match) -> str:
         nonlocal count
         # Extract ALL -e '...' bodies from the matched osascript command.
-        bodies = [
-            body.replace(r"'\''", "'")
-            for body in _OSASCRIPT_E_RE.findall(m.group(0))
-        ]
+        bodies = [body.replace(r"'\''", "'") for body in _OSASCRIPT_E_RE.findall(m.group(0))]
         if not bodies:
             return m.group(0)
 

@@ -10,9 +10,9 @@ Usage:
 
 import time
 
-from mmini import Mmini
+from use_computer import Computer
 
-client = Mmini()  # defaults to http://localhost:8080
+client = Computer(base_url="http://localhost:8080")
 
 # Create an iOS sandbox (iPhone 17 Pro by default)
 sandbox = client.create(type="ios")
@@ -66,7 +66,7 @@ with open("ios_dark.png", "wb") as f:
 print("Dark mode screenshot saved")
 
 # Upload a file to the simulator
-sandbox.upload_bytes(b"Hello from mmini iOS!", "Documents/test.txt")
+sandbox.upload_bytes(b"Hello from use.computer iOS!", "Documents/test.txt")
 print("File uploaded")
 
 # Download it back

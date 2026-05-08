@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from dataclasses import dataclass
 from typing import Any, Literal, overload
@@ -19,6 +20,18 @@ from mmini.sandbox import (
     SandboxType,
 )
 from mmini.tasks import TasksClient
+
+DEFAULT_BASE_URL = "https://api.use.computer"
+
+
+def _resolve_api_key(api_key: str | None) -> str | None:
+    if api_key is not None:
+        return api_key
+    return os.getenv("USE_COMPUTER_API_KEY") or os.getenv("MMINI_API_KEY")
+
+
+def _resolve_base_url(base_url: str | None) -> str:
+    return (base_url or os.getenv("USE_COMPUTER_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
 
 
 @dataclass
@@ -67,12 +80,12 @@ class RunStatus:
 class Mmini:
     """mmini client. Creates and manages macOS and iOS sandboxes."""
 
-    def __init__(self, api_key: str | None = None, base_url: str = "http://localhost:8080"):
-        self._base_url = base_url.rstrip("/")
-        self._api_key = api_key
+    def __init__(self, api_key: str | None = None, base_url: str | None = None):
+        self._base_url = _resolve_base_url(base_url)
+        self._api_key = _resolve_api_key(api_key)
         headers: dict[str, str] = {}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
         self._http = httpx.Client(
             base_url=self._base_url,
             headers=headers,
@@ -214,11 +227,12 @@ class Mmini:
 class AsyncMmini:
     """Async mmini client."""
 
-    def __init__(self, api_key: str | None = None, base_url: str = "http://localhost:8080"):
-        self._base_url = base_url.rstrip("/")
+    def __init__(self, api_key: str | None = None, base_url: str | None = None):
+        self._base_url = _resolve_base_url(base_url)
+        self._api_key = _resolve_api_key(api_key)
         headers: dict[str, str] = {}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
         self._http = httpx.AsyncClient(
             base_url=self._base_url,
             headers=headers,
@@ -309,7 +323,7 @@ class AsyncMmini:
         poll: bool = True,
         poll_interval: float = 3.0,
     ) -> RunStatus:
-        """Run an ad-hoc task: spin up a sandbox and drive a model against a free-form instruction."""
+        """Run an ad-hoc task and drive a model against a free-form instruction."""
         body: dict[str, Any] = {
             "instruction": instruction,
             "platform": platform,

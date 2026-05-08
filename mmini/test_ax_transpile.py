@@ -5,6 +5,7 @@ snippet that invokes /usr/local/bin/ax_helper.py via cua-server's
 run_command — and that no PyObjC / ApplicationServices string leaks into
 the emitted output (that was the fragile pattern we're replacing).
 """
+
 from __future__ import annotations
 
 import base64
@@ -15,13 +16,12 @@ import shlex
 import pytest
 
 from mmini.ax_transpile import (
-    HELPER,
     DEFAULT_OSASCRIPT_TIMEOUT_S,
+    HELPER,
     PRE_COMMAND_OSASCRIPT_TIMEOUT_S,
     needs_rewrite,
     transpile,
 )
-
 
 # Matches `echo <B64> | base64 -d | bash` anywhere in a string — emission
 # can be embedded inside `bash -c '...'` or appear multiple times in one
@@ -75,10 +75,11 @@ def _assert_no_raw_quotes(emitted: str) -> None:
 
 # ---- Coverage tests -------------------------------------------------------
 
+
 def test_frontmost_process_name():
     src = (
         'osascript -e \'tell application "System Events" to get name of '
-        'first process whose frontmost is true\''
+        "first process whose frontmost is true'"
     )
     out, n = transpile(src)
     assert n == 1
@@ -92,7 +93,7 @@ def test_attr_of_path_frontmost_root():
     src = (
         'osascript -e \'tell application "System Events" to get value of '
         'attribute "AXTitle" of window 1 of (first application process '
-        'whose frontmost is true)\''
+        "whose frontmost is true)'"
     )
     out, n = transpile(src)
     assert n == 1
@@ -166,9 +167,7 @@ def test_dock_items():
 
 
 def test_keystroke_no_mods():
-    src = (
-        'osascript -e \'tell application "System Events" to keystroke "a"\''
-    )
+    src = 'osascript -e \'tell application "System Events" to keystroke "a"\''
     out, n = transpile(src)
     assert n == 1
     _assert_no_pyobjc(out)
@@ -179,7 +178,7 @@ def test_keystroke_no_mods():
 def test_keystroke_with_mods():
     src = (
         'osascript -e \'tell application "System Events" to keystroke "f" '
-        'using {command down, control down}\''
+        "using {command down, control down}'"
     )
     out, n = transpile(src)
     assert n == 1
@@ -192,11 +191,12 @@ def test_keystroke_with_mods():
 
 # ---- Pass-through + bash-escape form --------------------------------------
 
+
 def test_fallback_wraps_non_system_events():
     """Non-System-Events `tell application "X"` lines now get wrapped with
     `with timeout of N seconds` by the fallback converter — prevents
     alarm-kill on Notes/Keynote/Contacts/Reminders/etc."""
-    src = 'osascript -e \'tell application "Finder" to get name of startup disk\''
+    src = "osascript -e 'tell application \"Finder\" to get name of startup disk'"
     out, n = transpile(src)
     assert n == 1
     _assert_no_raw_quotes(out)
@@ -214,9 +214,11 @@ def test_fallback_wraps_data_heavy_app_queries():
     cases = [
         ('tell application "Notes" to count of notes', 'tell application "Notes"'),
         ('tell application "Contacts" to count of people', 'tell application "Contacts"'),
-        ('tell application "Keynote" to get width of document 1', 'of document 1'),
-        ('tell application "Reminders" to return (exists (list "Shopping")) as string',
-         'Reminders'),
+        ('tell application "Keynote" to get width of document 1', "of document 1"),
+        (
+            'tell application "Reminders" to return (exists (list "Shopping")) as string',
+            "Reminders",
+        ),
     ]
     for body, marker in cases:
         src = f"osascript -e '{body}'"
@@ -254,9 +256,10 @@ def test_bash_escape_quote_form():
 
 def test_multiple_osascript_in_one_text():
     src = (
-        'echo one; '
-        'osascript -e \'tell application "System Events" to get name of first process whose frontmost is true\'; '
-        'echo two; '
+        "echo one; "
+        'osascript -e \'tell application "System Events" to get name of first process '
+        "whose frontmost is true'; "
+        "echo two; "
         'osascript -e \'tell application "System Events" to keystroke "a"\''
     )
     out, n = transpile(src)
@@ -267,9 +270,9 @@ def test_multiple_osascript_in_one_text():
 def test_needs_rewrite_predicate():
     # Any osascript -e '...' call triggers a rewrite now (fallback wraps it
     # in `with timeout of N seconds`).
-    assert needs_rewrite('osascript -e \'tell application "System Events" to beep\'')
-    assert needs_rewrite('osascript -e \'tell application "Finder" to beep\'')
-    assert not needs_rewrite('echo hello')
+    assert needs_rewrite("osascript -e 'tell application \"System Events\" to beep'")
+    assert needs_rewrite("osascript -e 'tell application \"Finder\" to beep'")
+    assert not needs_rewrite("echo hello")
 
 
 def test_multi_e_osascript():
@@ -279,7 +282,7 @@ def test_multi_e_osascript():
     src = (
         "osascript "
         "-e 'tell application \"Keynote\" to make new document' "
-        "-e 'tell application \"Keynote\" to set the object text of slide 1 to \"Hello\"'"
+        '-e \'tell application "Keynote" to set the object text of slide 1 to "Hello"\''
     )
     out, n = transpile(src)
     assert n == 1
@@ -297,7 +300,7 @@ def test_multi_e_osascript():
 def test_fallback_timeout_param():
     """transpile(text, fallback_timeout_s=N) controls the `with timeout of N`
     value in the emitted payload. Pre_commands use 45s; verifiers use 5s."""
-    src = 'osascript -e \'tell application "Notes" to count of notes\''
+    src = "osascript -e 'tell application \"Notes\" to count of notes'"
 
     out_verifier, _ = transpile(src)
     payload_verifier = _decode_emission(out_verifier)

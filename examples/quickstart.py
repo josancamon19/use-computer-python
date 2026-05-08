@@ -1,5 +1,5 @@
 """
-Quick test of the mmini SDK against a local gateway.
+Quick test of the use-computer SDK against a local gateway.
 
 Usage:
     cd sdk && uv run python examples/quickstart.py
@@ -7,9 +7,9 @@ Usage:
 
 import time
 
-from mmini import Mmini
+from use_computer import Computer
 
-client = Mmini()  # defaults to http://localhost:8080
+client = Computer(base_url="http://localhost:8080")
 
 sandbox = client.create()
 print(f"Created: {sandbox}")
@@ -30,7 +30,7 @@ with open("screen.png", "wb") as f:
 print(f"Screenshot saved to screen.png ({len(img)} bytes)")
 
 # Type something
-sandbox.keyboard.type("Hello from mmini!")
+sandbox.keyboard.type("Hello from use.computer!")
 time.sleep(0.5)
 
 # Screenshot after typing

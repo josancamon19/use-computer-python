@@ -14,7 +14,12 @@ import httpx
 
 _log = logging.getLogger("mmini.retry")
 
-RETRYABLE_EXCEPTIONS = (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError, httpx.WriteError)
+RETRYABLE_EXCEPTIONS = (
+    httpx.TimeoutException,
+    httpx.ConnectError,
+    httpx.ReadError,
+    httpx.WriteError,
+)
 RETRYABLE_STATUS_CODES = frozenset({500, 502, 503, 504, 529})
 NO_RETRY_PATTERNS = ("not found", "connection refused")
 MAX_RETRIES = 3
@@ -38,7 +43,14 @@ class RetryTransport(httpx.BaseTransport):
             except RETRYABLE_EXCEPTIONS as exc:
                 if attempt == MAX_RETRIES:
                     raise
-                _log.warning("retry %d/%d: %s %s → %s", attempt + 1, MAX_RETRIES, request.method, request.url, type(exc).__name__)
+                _log.warning(
+                    "retry %d/%d: %s %s → %s",
+                    attempt + 1,
+                    MAX_RETRIES,
+                    request.method,
+                    request.url,
+                    type(exc).__name__,
+                )
                 time.sleep(RETRY_DELAY)
                 continue
 
@@ -54,10 +66,18 @@ class RetryTransport(httpx.BaseTransport):
             if not _is_retryable_body(body):
                 return resp
 
-            _log.warning("retry %d/%d: %s %s → %d %s", attempt + 1, MAX_RETRIES, request.method, request.url, resp.status_code, body)
+            _log.warning(
+                "retry %d/%d: %s %s → %d %s",
+                attempt + 1,
+                MAX_RETRIES,
+                request.method,
+                request.url,
+                resp.status_code,
+                body,
+            )
             resp.close()
             time.sleep(RETRY_DELAY)
-        return resp  # type: ignore[return-value]
+        raise RuntimeError("retry transport exhausted without a response")
 
     def close(self) -> None:
         self._transport.close()
@@ -75,7 +95,14 @@ class AsyncRetryTransport(httpx.AsyncBaseTransport):
             except RETRYABLE_EXCEPTIONS as exc:
                 if attempt == MAX_RETRIES:
                     raise
-                _log.warning("retry %d/%d: %s %s → %s", attempt + 1, MAX_RETRIES, request.method, request.url, type(exc).__name__)
+                _log.warning(
+                    "retry %d/%d: %s %s → %s",
+                    attempt + 1,
+                    MAX_RETRIES,
+                    request.method,
+                    request.url,
+                    type(exc).__name__,
+                )
                 await asyncio.sleep(RETRY_DELAY)
                 continue
 
@@ -91,10 +118,18 @@ class AsyncRetryTransport(httpx.AsyncBaseTransport):
             if not _is_retryable_body(body):
                 return resp
 
-            _log.warning("retry %d/%d: %s %s → %d %s", attempt + 1, MAX_RETRIES, request.method, request.url, resp.status_code, body)
+            _log.warning(
+                "retry %d/%d: %s %s → %d %s",
+                attempt + 1,
+                MAX_RETRIES,
+                request.method,
+                request.url,
+                resp.status_code,
+                body,
+            )
             await resp.aclose()
             await asyncio.sleep(RETRY_DELAY)
-        return resp  # type: ignore[return-value]
+        raise RuntimeError("async retry transport exhausted without a response")
 
     async def aclose(self) -> None:
         await self._transport.aclose()

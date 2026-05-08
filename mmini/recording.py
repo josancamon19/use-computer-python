@@ -34,7 +34,8 @@ class Recording:
         return RecordingInfo.from_dict(resp.json())
 
     def download(self, recording_id: str, local_path: str, timeout: float = 30.0) -> None:
-        with self._http.stream("GET", f"{self._prefix}/recordings/{recording_id}/download", timeout=timeout) as resp:
+        download_url = f"{self._prefix}/recordings/{recording_id}/download"
+        with self._http.stream("GET", download_url, timeout=timeout) as resp:
             resp.raise_for_status()
             with open(local_path, "wb") as f:
                 for chunk in resp.iter_bytes(chunk_size=65536):
