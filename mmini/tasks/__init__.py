@@ -29,6 +29,13 @@ def _render(text: str, **kwargs: str) -> str:
     return out
 
 
+def _strip_ios_prefix(s: str, kind: str) -> str:
+    """Drop boilerplate `com.apple.CoreSimulator.<kind>.` so the toml is readable.
+    `kind` is "SimDeviceType" or "SimRuntime"."""
+    prefix = f"com.apple.CoreSimulator.{kind}."
+    return s[len(prefix) :] if s.startswith(prefix) else s
+
+
 @dataclass
 class TaskSummary:
     """Lightweight task info from the list endpoint."""
@@ -66,6 +73,8 @@ class Task:
     accessibility_tree: dict | None = None
     grader: str = ""
     setup_actions: list = field(default_factory=list)
+    device_type: str = ""
+    runtime: str = ""
 
     @property
     def runnable(self) -> bool:
@@ -115,6 +124,8 @@ class TasksClient:
             accessibility_tree=d.get("accessibility_tree"),
             grader=d.get("grader", ""),
             setup_actions=d.get("setup_actions") or [],
+            device_type=d.get("device_type", ""),
+            runtime=d.get("runtime", ""),
         )
 
     def export_harbor(
@@ -227,7 +238,10 @@ def task_to_harbor(
     # instruction.md
     (task_dir / "instruction.md").write_text(task.instruction + "\n", encoding="utf-8")
 
-    # task.toml
+    # task.toml — append the [ios] block when the task pins a device/runtime so
+    # the runner can spin up the matching simulator. Long
+    # com.apple.CoreSimulator.* identifiers are shortened to the readable form
+    # ("iPhone-17-Pro" / "iOS-26-4"); the runner reconstructs the prefix.
     tags = ["collected", "gui", task.platform]
     if category:
         tags.append(category)
@@ -237,6 +251,16 @@ def task_to_harbor(
         PLATFORM=task.platform,
         RUNNABLE="true" if task.runnable else "false",
     )
+    if task.platform == "ios":
+        device_type = _strip_ios_prefix(task.device_type, "SimDeviceType")
+        runtime = _strip_ios_prefix(task.runtime, "SimRuntime")
+        if device_type or runtime:
+            ios_block = ["\n[ios]\n"]
+            if device_type:
+                ios_block.append(f'device_type = "{device_type}"\n')
+            if runtime:
+                ios_block.append(f'runtime = "{runtime}"\n')
+            toml += "".join(ios_block)
     (task_dir / "task.toml").write_text(toml, encoding="utf-8")
 
     # actions.json — flat {steps: [{function, args}, ...]} for the debug agent's
