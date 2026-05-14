@@ -32,7 +32,7 @@ For agent loops and evals: [use-computer-cookbook](https://github.com/josancamon
 
 ## For AI coding assistants
 
-The cookbook ships a Claude-Code-ready skill that teaches an assistant how to use this SDK end-to-end (macOS + iOS DSL, recording, file transfer, keepalive, retries, the AppleScript/AX transpiler, the vision-model coord scaling). Point your assistant at [`skills/use-computer-sdk/SKILL.md`](https://github.com/josancamon19/use-computer-cookbook/blob/main/skills/use-computer-sdk/SKILL.md) — the body is short and links out to per-topic references in `skills/use-computer-sdk/references/`.
+The cookbook ships a Claude-Code-ready skill that teaches an assistant how to use this SDK end-to-end (macOS + iOS DSL, recording, file transfer, keepalive, retries, the AppleScript/AX transpiler, the vision-model coord scaling). Point your assistant at [`skills/SKILL.md`](https://github.com/josancamon19/use-computer-cookbook/blob/main/skills/SKILL.md) — the body is short and links out to per-topic references in `skills/references/`.
 
 ## HTTP API
 
