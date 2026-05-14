@@ -1,6 +1,6 @@
 # use-computer Python SDK
 
-Python client for use.computer macOS and iOS sandboxes.
+Python client for [use.computer](https://use.computer) — rent dedicated Mac minis with macOS and iOS sandboxes built for computer-use agents.
 
 ```bash
 pip install use-computer
@@ -10,69 +10,26 @@ export USE_COMPUTER_API_KEY=mk_live_...
 ```python
 from use_computer import Computer
 
-computer = Computer()
-sandbox = computer.create()  # macOS
-
-try:
-    png = sandbox.screenshot.take_full_screen()
-    sandbox.mouse.click(500, 400)
-    sandbox.keyboard.type("hello")
-    sandbox.exec_ssh("open -a TextEdit")
-finally:
-    sandbox.close()
-    computer.close()
+with Computer().create() as mac:
+    mac.exec_ssh("open -a TextEdit")
+    mac.keyboard.type("hello")
+    png = mac.screenshot.take_full_screen()
 ```
 
-## iOS
+Full DSL reference (macOS + iOS): [docs.use.computer/docs/sdk](https://docs.use.computer/docs/sdk)
 
-```python
-from use_computer import Computer
+## Examples
 
-computer = Computer()
-ios = computer.create(type="ios")
-try:
-    ios.apps.open_url("https://example.com")
-    ios.input.tap(200, 300)
-    ios.input.type_text("hello")
-    ios.environment.set_appearance("dark")
-finally:
-    ios.close()
-    computer.close()
-```
+| File                                                           | What it shows                              |
+| -------------------------------------------------------------- | ------------------------------------------ |
+| [`examples/_1_hello_macos.py`](examples/_1_hello_macos.py)     | create → exec → keyboard → screenshot      |
+| [`examples/_2_hello_ios.py`](examples/_2_hello_ios.py)         | create iOS → open URL → screenshot         |
+| [`examples/_3_recording.py`](examples/_3_recording.py)         | start / stop / download a screen recording |
+| [`examples/_4_file_transfer.py`](examples/_4_file_transfer.py) | upload bytes, download a file back         |
+| [`examples/_5_keepalive.py`](examples/_5_keepalive.py)         | heartbeat for sessions idle > 2 min        |
 
-In runner configs, use `platform: ios`; the runner calls the iOS SDK create path under the hood.
+For agent loops and evals: [use-computer-cookbook](https://github.com/josancamon19/use-computer-cookbook).
 
-## Action DSL
+## HTTP API
 
-Actions are dotted method calls plus args/kwargs. They are useful when a model emits tool-like steps. Given an open macOS `sandbox`:
-
-```python
-from use_computer import Action, parse_pyautogui, parse_xdotool
-
-actions = [
-    Action("mouse.move", [500, 400]),
-    Action("mouse.click", [500, 400]),
-    Action("keyboard.hotkey", ["command+space"]),
-    Action("keyboard.type", ["Safari"]),
-    Action("screenshot.take_full_screen"),
-]
-
-for action in actions:
-    action.execute(sandbox)
-
-for action in parse_pyautogui("pyautogui.click(100, 200); pyautogui.write('hi')"):
-    action.execute(sandbox)
-
-for action in parse_xdotool("xdotool mousemove 100 200 click 1 type hello"):
-    action.execute(sandbox)
-```
-
-Common macOS targets: `mouse.*`, `keyboard.*`, `screenshot.*`, `display.*`, `recording.*`.
-
-Common iOS targets: `input.*`, `apps.*`, `environment.*`, `screenshot.*`, `recording.*`.
-
-Docs: https://api.use.computer/docs
-
-OpenAPI: https://api.use.computer/openapi.yaml
-
-Examples: https://github.com/josancamon19/use-computer-examples
+Every SDK method wraps `https://api.use.computer/v1/...` with `Authorization: Bearer mk_live_...`. Swagger: [api.use.computer/docs](https://api.use.computer/docs). OpenAPI spec: [api.use.computer/openapi.yaml](https://api.use.computer/openapi.yaml).
