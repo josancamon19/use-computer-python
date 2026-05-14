@@ -11,7 +11,7 @@ from pathlib import Path
 
 import httpx
 
-from mmini.ax_transpile import patch_curl_timeouts, transpile
+from use_computer.ax_transpile import patch_curl_timeouts, transpile
 
 logger = logging.getLogger(__name__)
 

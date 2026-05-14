@@ -4,7 +4,7 @@ from typing import Any
 
 import httpx
 
-from mmini.models import DisplayInfo
+from use_computer.models import DisplayInfo
 
 
 class Display:

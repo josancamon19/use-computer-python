@@ -15,7 +15,7 @@ import shlex
 
 import pytest
 
-from mmini.ax_transpile import (
+from use_computer.ax_transpile import (
     DEFAULT_OSASCRIPT_TIMEOUT_S,
     HELPER,
     PRE_COMMAND_OSASCRIPT_TIMEOUT_S,

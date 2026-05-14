@@ -464,7 +464,7 @@ _B64_PAYLOAD_RE = re.compile(r"echo ([A-Za-z0-9+/=]+) \| base64 -d \| bash")
 
 def patch_curl_timeouts(text: str) -> tuple[str, int]:
     """Add -m 5 to `curl -s -X POST` calls that are buried inside base64-encoded
-    payloads (the ax_helper emission style).  Used by mmini._run_setup to harden
+    payloads (the ax_helper emission style).  Used by use_computer._run_setup to harden
     already-baked test.sh files whose payloads were generated before the -m flag
     was added to _emit_helper_call.
 

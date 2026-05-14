@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import httpx
 
-from mmini.models import ActionResult, CursorPosition
+from use_computer.models import ActionResult, CursorPosition
 
 
 class Mouse:

@@ -1,4 +1,4 @@
-"""Typed exceptions for mmini SDK errors that callers should catch by class
+"""Typed exceptions for use.computer SDK errors that callers should catch by class
 rather than by parsing HTTP status codes or response bodies."""
 
 from __future__ import annotations
@@ -6,11 +6,11 @@ from __future__ import annotations
 import httpx
 
 
-class MminiError(Exception):
-    """Base class for typed mmini SDK errors."""
+class UseComputerError(Exception):
+    """Base class for typed use.computer SDK errors."""
 
 
-class PlatformNotSupportedError(MminiError):
+class PlatformNotSupportedError(UseComputerError):
     """Raised when an action is not supported on the sandbox's platform.
 
     The gateway returns 501 with a JSON body of the shape:

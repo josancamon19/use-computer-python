@@ -38,7 +38,7 @@ Documentation = "https://api.use.computer/docs"
 Repository = "https://github.com/josancamon19/use-computer-python"
 
 [tool.hatch.build.targets.wheel]
-packages = ["mmini", "use_computer"]
+packages = ["use_computer"]
 
 [tool.hatch.build]
 exclude = [
@@ -48,7 +48,7 @@ exclude = [
     "/.venv",
     "/dist",
     "/results",
-    "/mmini/test_*.py",
+    "/use_computer/test_*.py",
 ]
 
 [tool.ruff]

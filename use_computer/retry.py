@@ -1,4 +1,4 @@
-"""Single retry layer for all mmini SDK HTTP calls.
+"""Single retry layer for all use.computer SDK HTTP calls.
 
 Retries are handled at the httpx transport level so they apply
 automatically to every request — no per-method wrappers needed.
@@ -12,7 +12,7 @@ import time
 
 import httpx
 
-_log = logging.getLogger("mmini.retry")
+_log = logging.getLogger("use_computer.retry")
 
 RETRYABLE_EXCEPTIONS = (
     httpx.TimeoutException,

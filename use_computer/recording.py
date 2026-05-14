@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import httpx
 
-from mmini.models import RecordingInfo
+from use_computer.models import RecordingInfo
 
 
 class Recording:

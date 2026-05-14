@@ -1,10 +1,10 @@
-"""Parse pyautogui and xdotool commands into mmini Sandbox calls.
+"""Parse pyautogui and xdotool commands into use.computer Sandbox calls.
 
 Models like Claude and GPT sometimes output raw pyautogui or xdotool commands.
 These parsers translate them into Sandbox method calls.
 
 Usage:
-    from mmini.parsers import parse_pyautogui, parse_xdotool
+    from use_computer.parsers import parse_pyautogui, parse_xdotool
 
     for action in parse_pyautogui("pyautogui.click(100, 200)"):
         action.execute(sandbox)
@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from mmini.sandbox import Sandbox
+    from use_computer.sandbox import Sandbox
 
 
 @dataclass

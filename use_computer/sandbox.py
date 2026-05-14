@@ -9,15 +9,15 @@ from pathlib import Path
 
 import httpx
 
-from mmini.display import AsyncDisplay, Display
-from mmini.ios.apps import Apps, AsyncApps
-from mmini.ios.environment import AsyncEnvironment, Environment
-from mmini.ios.input import AsyncInput, Input
-from mmini.macos.keyboard import AsyncKeyboard, Keyboard
-from mmini.macos.mouse import AsyncMouse, Mouse
-from mmini.models import ActResult, ExecResult
-from mmini.recording import AsyncRecording, Recording
-from mmini.screenshot import AsyncScreenshot, Screenshot
+from use_computer.display import AsyncDisplay, Display
+from use_computer.ios.apps import Apps, AsyncApps
+from use_computer.ios.environment import AsyncEnvironment, Environment
+from use_computer.ios.input import AsyncInput, Input
+from use_computer.macos.keyboard import AsyncKeyboard, Keyboard
+from use_computer.macos.mouse import AsyncMouse, Mouse
+from use_computer.models import ActResult, ExecResult
+from use_computer.recording import AsyncRecording, Recording
+from use_computer.screenshot import AsyncScreenshot, Screenshot
 
 
 class SandboxType(str, Enum):
@@ -222,7 +222,7 @@ class MacOSSandbox(Sandbox):
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
             for item in local_dir.rglob("*"):
                 tar.add(str(item), arcname=str(item.relative_to(local_dir)))
-        tmp = f"/tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz"
+        tmp = f"/tmp/_use_computer_upload_{self.sandbox_id[-8:]}.tar.gz"
         self.upload_bytes(buf.getvalue(), tmp)
         self.exec_ssh(f'mkdir -p "{remote_dir}" && tar xzf {tmp} -C "{remote_dir}" && rm -f {tmp}')
 
@@ -390,7 +390,7 @@ class AsyncMacOSSandbox(AsyncSandbox):
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
             for item in local_dir.rglob("*"):
                 tar.add(str(item), arcname=str(item.relative_to(local_dir)))
-        tmp = f"/tmp/_mmini_upload_{self.sandbox_id[-8:]}.tar.gz"
+        tmp = f"/tmp/_use_computer_upload_{self.sandbox_id[-8:]}.tar.gz"
         await self.upload_bytes(buf.getvalue(), tmp)
         cmd = f'mkdir -p "{remote_dir}" && tar xzf {tmp} -C "{remote_dir}" && rm -f {tmp}'
         await self.exec_ssh(cmd)

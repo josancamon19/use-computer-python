@@ -8,9 +8,9 @@ from typing import Any, Literal, overload
 
 import httpx
 
-from mmini.errors import _araise_if_unsupported, _raise_if_unsupported
-from mmini.retry import AsyncRetryTransport, RetryTransport
-from mmini.sandbox import (
+from use_computer.errors import _araise_if_unsupported, _raise_if_unsupported
+from use_computer.retry import AsyncRetryTransport, RetryTransport
+from use_computer.sandbox import (
     AsyncIOSSandbox,
     AsyncMacOSSandbox,
     AsyncSandbox,
@@ -19,7 +19,7 @@ from mmini.sandbox import (
     Sandbox,
     SandboxType,
 )
-from mmini.tasks import TasksClient
+from use_computer.tasks import TasksClient
 
 DEFAULT_BASE_URL = "https://api.use.computer"
 
@@ -77,8 +77,8 @@ class RunStatus:
         )
 
 
-class Mmini:
-    """mmini client. Creates and manages macOS and iOS sandboxes."""
+class Computer:
+    """use.computer client. Creates and manages macOS and iOS sandboxes."""
 
     def __init__(self, api_key: str | None = None, base_url: str | None = None):
         self._base_url = _resolve_base_url(base_url)
@@ -224,8 +224,8 @@ class Mmini:
         self.close()
 
 
-class AsyncMmini:
-    """Async mmini client."""
+class AsyncComputer:
+    """Async use.computer client."""
 
     def __init__(self, api_key: str | None = None, base_url: str | None = None):
         self._base_url = _resolve_base_url(base_url)

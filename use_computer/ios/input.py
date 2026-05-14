@@ -4,7 +4,7 @@ from enum import Enum
 
 import httpx
 
-from mmini.models import ActionResult
+from use_computer.models import ActionResult
 
 
 class Button(str, Enum):
