@@ -30,9 +30,9 @@ Full DSL reference (macOS + iOS): [docs.use.computer/docs/sdk](https://docs.use.
 
 For agent loops and evals: [use-computer-cookbook](https://github.com/josancamon19/use-computer-cookbook).
 
-## For AI coding assistants
+## Skill for AI coding assistants
 
-The cookbook ships a Claude-Code-ready skill that teaches an assistant how to use this SDK end-to-end (macOS + iOS DSL, recording, file transfer, keepalive, retries, the AppleScript/AX transpiler, the vision-model coord scaling). Point your assistant at [`skills/SKILL.md`](https://github.com/josancamon19/use-computer-cookbook/blob/main/skills/SKILL.md) — the body is short and links out to per-topic references in `skills/references/`.
+Point your assistant at [`use-computer-cookbook/skills/SKILL.md`](https://github.com/josancamon19/use-computer-cookbook/blob/main/skills/SKILL.md) — short body with per-topic references for macOS, iOS, lifecycle, and the Harbor harness.
 
 ## HTTP API
 
