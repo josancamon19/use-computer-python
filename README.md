@@ -30,6 +30,10 @@ Full DSL reference (macOS + iOS): [docs.use.computer/docs/sdk](https://docs.use.
 
 For agent loops and evals: [use-computer-cookbook](https://github.com/josancamon19/use-computer-cookbook).
 
+## For AI coding assistants
+
+The cookbook ships a Claude-Code-ready skill that teaches an assistant how to use this SDK end-to-end (macOS + iOS DSL, recording, file transfer, keepalive, retries, the AppleScript/AX transpiler, the vision-model coord scaling). Point your assistant at [`skills/use-computer-sdk/SKILL.md`](https://github.com/josancamon19/use-computer-cookbook/blob/main/skills/use-computer-sdk/SKILL.md) — the body is short and links out to per-topic references in `skills/use-computer-sdk/references/`.
+
 ## HTTP API
 
 Every SDK method wraps `https://api.use.computer/v1/...` with `Authorization: Bearer mk_live_...`. Swagger: [api.use.computer/docs](https://api.use.computer/docs). OpenAPI spec: [api.use.computer/openapi.yaml](https://api.use.computer/openapi.yaml).
