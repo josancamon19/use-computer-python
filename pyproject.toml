@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "use-computer"
-version = "0.1.0"
+version = "0.0.2"
 description = "Python SDK for the use.computer macOS and iOS Computer Use API"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "use.computer" }]
-dependencies = ["httpx>=0.27", "Pillow>=10"]
+dependencies = ["httpx>=0.27"]
 keywords = ["computer-use", "macos", "ios", "automation", "sandbox"]
 classifiers = [
     "Development Status :: 3 - Alpha",

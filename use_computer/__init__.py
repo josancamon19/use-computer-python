@@ -19,7 +19,6 @@ from use_computer.sandbox import (
     SandboxType,
 )
 from use_computer.tasks import Task, TasksClient, TaskSummary
-from use_computer.vision import scale_screenshot_for_model, screenshot_cap_for_model
 
 __all__ = [
     "Action",
@@ -46,6 +45,4 @@ __all__ = [
     "TasksClient",
     "parse_pyautogui",
     "parse_xdotool",
-    "scale_screenshot_for_model",
-    "screenshot_cap_for_model",
 ]
