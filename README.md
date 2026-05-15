@@ -20,9 +20,9 @@ Full DSL reference (macOS + simulator): [docs.use.computer/docs/sdk](https://doc
 
 Simulator sandboxes use `type="ios"` for the SDK/API route, but `device_type`
 and `runtime` can target any installed compatible CoreSimulator pair: iPhone or
-iPad with iOS, Apple Watch with watchOS, Apple TV with tvOS, and Apple Vision
-with visionOS. If omitted, the gateway defaults to iPhone 17 Pro on the latest
-installed iOS runtime.
+iPad with iOS, Apple Watch with watchOS, or Apple TV with tvOS. Vision is
+unavailable for now. If omitted, the gateway defaults to iPhone 17 Pro on the
+latest installed iOS runtime.
 
 ## Examples
 
