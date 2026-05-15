@@ -18,6 +18,14 @@ from use_computer.sandbox import (
     Sandbox,
     SandboxType,
 )
+from use_computer.simulators import (
+    SimulatorChoice,
+    SimulatorFamily,
+    family_for_device,
+    required_runtime_os,
+    runtime_os,
+    select_simulator,
+)
 from use_computer.tasks import Task, TasksClient, TaskSummary
 
 __all__ = [
@@ -40,9 +48,15 @@ __all__ = [
     "RunStatus",
     "Sandbox",
     "SandboxType",
+    "SimulatorChoice",
+    "SimulatorFamily",
     "Task",
     "TaskSummary",
     "TasksClient",
+    "family_for_device",
     "parse_pyautogui",
     "parse_xdotool",
+    "required_runtime_os",
+    "runtime_os",
+    "select_simulator",
 ]

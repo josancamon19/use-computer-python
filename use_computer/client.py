@@ -19,9 +19,12 @@ from use_computer.sandbox import (
     Sandbox,
     SandboxType,
 )
+from use_computer.simulators import SimulatorFamily, select_simulator
 from use_computer.tasks import TasksClient
 
 DEFAULT_BASE_URL = "https://api.use.computer"
+
+SandboxTypeInput = SandboxType | Literal["macos", "ios"]
 
 
 def _resolve_api_key(api_key: str | None) -> str | None:
@@ -32,6 +35,12 @@ def _resolve_api_key(api_key: str | None) -> str | None:
 
 def _resolve_base_url(base_url: str | None) -> str:
     return (base_url or os.getenv("USE_COMPUTER_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
+
+
+def _normalize_sandbox_type(type: SandboxTypeInput) -> SandboxType:
+    if isinstance(type, SandboxType):
+        return type
+    return SandboxType(type)
 
 
 @dataclass
@@ -102,32 +111,50 @@ class Computer:
         return resp.json()
 
     @overload
-    def create(self, *, type: Literal["macos"] = ..., host: str = ...) -> MacOSSandbox: ...
+    def create(
+        self,
+        *,
+        type: Literal["macos", SandboxType.MACOS] = ...,
+        host: str = ...,
+    ) -> MacOSSandbox: ...
+
     @overload
     def create(
-        self, *, type: Literal["ios"], device_type: str = ..., runtime: str = ...
+        self,
+        *,
+        type: Literal["ios", SandboxType.IOS],
+        family: SimulatorFamily | str = ...,
+        device_type: str = ...,
+        runtime: str = ...,
     ) -> IOSSandbox: ...
 
     def create(
         self,
         *,
-        type: str = "macos",
+        type: SandboxTypeInput = SandboxType.MACOS,
         host: str = "",
+        family: SimulatorFamily | str | None = None,
         device_type: str = "",
         runtime: str = "",
     ) -> MacOSSandbox | IOSSandbox:
         """Create a new sandbox.
 
         Args:
-            type: "macos" (default) or "ios".
+            type: SandboxType.MACOS (default), SandboxType.IOS, or the raw API string.
             host: Pin sandbox to a specific host machine (e.g. "mm001").
-            device_type: iOS only — simulator device type identifier.
-            runtime: iOS only — simulator runtime identifier.
+            family: Simulator family enum/alias, for example SimulatorFamily.TV.
+            device_type: Simulator device type identifier, for exact pinning.
+            runtime: Simulator runtime identifier, for exact pinning.
         """
-        body: dict = {"type": type}
+        sandbox_type = _normalize_sandbox_type(type)
+        body: dict = {"type": sandbox_type.value}
         if host:
             body["host"] = host
-        if type == "ios":
+        if sandbox_type == SandboxType.IOS:
+            if family and (not device_type or not runtime):
+                choice = select_simulator(self.platforms(), family)
+                device_type = device_type or choice.device_type
+                runtime = runtime or choice.runtime
             if device_type:
                 body["device_type"] = device_type
             if runtime:
@@ -138,7 +165,7 @@ class Computer:
         data = resp.json()
         sid = data["sandbox_id"]
 
-        if type == "ios":
+        if sandbox_type == SandboxType.IOS:
             return IOSSandbox(sandbox_id=sid, http=self._http)
         return MacOSSandbox(
             sandbox_id=sid,
@@ -249,33 +276,49 @@ class AsyncComputer:
 
     @overload
     async def create(
-        self, *, type: Literal["macos"] = ..., host: str = ...
+        self,
+        *,
+        type: Literal["macos", SandboxType.MACOS] = ...,
+        host: str = ...,
     ) -> AsyncMacOSSandbox: ...
+
     @overload
     async def create(
-        self, *, type: Literal["ios"], device_type: str = ..., runtime: str = ...
+        self,
+        *,
+        type: Literal["ios", SandboxType.IOS],
+        family: SimulatorFamily | str = ...,
+        device_type: str = ...,
+        runtime: str = ...,
     ) -> AsyncIOSSandbox: ...
 
     async def create(
         self,
         *,
-        type: str = "macos",
+        type: SandboxTypeInput = SandboxType.MACOS,
         host: str = "",
+        family: SimulatorFamily | str | None = None,
         device_type: str = "",
         runtime: str = "",
     ) -> AsyncMacOSSandbox | AsyncIOSSandbox:
         """Create a new sandbox.
 
         Args:
-            type: "macos" (default) or "ios".
+            type: SandboxType.MACOS (default), SandboxType.IOS, or the raw API string.
             host: Pin sandbox to a specific host machine (e.g. "mm001").
-            device_type: iOS only — simulator device type identifier.
-            runtime: iOS only — simulator runtime identifier.
+            family: Simulator family enum/alias, for example SimulatorFamily.TV.
+            device_type: Simulator device type identifier, for exact pinning.
+            runtime: Simulator runtime identifier, for exact pinning.
         """
-        body: dict = {"type": type}
+        sandbox_type = _normalize_sandbox_type(type)
+        body: dict = {"type": sandbox_type.value}
         if host:
             body["host"] = host
-        if type == "ios":
+        if sandbox_type == SandboxType.IOS:
+            if family and (not device_type or not runtime):
+                choice = select_simulator(await self.platforms(), family)
+                device_type = device_type or choice.device_type
+                runtime = runtime or choice.runtime
             if device_type:
                 body["device_type"] = device_type
             if runtime:
@@ -286,7 +329,7 @@ class AsyncComputer:
         data = resp.json()
         sid = data["sandbox_id"]
 
-        if type == "ios":
+        if sandbox_type == SandboxType.IOS:
             return AsyncIOSSandbox(sandbox_id=sid, http=self._http)
         return AsyncMacOSSandbox(
             sandbox_id=sid,

@@ -8,21 +8,26 @@ export USE_COMPUTER_API_KEY=mk_live_...
 ```
 
 ```python
-from use_computer import Computer
+from use_computer import Computer, SandboxType, SimulatorFamily
 
 with Computer().create() as mac:
     mac.exec_ssh("open -a TextEdit")
     mac.keyboard.type("hello")
     png = mac.screenshot.take_full_screen()
+
+with Computer().create(type=SandboxType.IOS, family=SimulatorFamily.TV) as tv:
+    tv.screenshot.take_full_screen()
 ```
 
 Full DSL reference (macOS + simulator): [docs.use.computer/docs/sdk](https://docs.use.computer/docs/sdk)
 
-Simulator sandboxes use `type="ios"` for the SDK/API route, but `device_type`
-and `runtime` can target any installed compatible CoreSimulator pair: iPhone or
-iPad with iOS, Apple Watch with watchOS, or Apple TV with tvOS. Vision is
-unavailable for now. If omitted, the gateway defaults to iPhone 17 Pro on the
-latest installed iOS runtime.
+Simulator sandboxes use `type=SandboxType.IOS` for the SDK route, but
+`device_type` and `runtime` can target any installed compatible CoreSimulator
+pair: iPhone or iPad with iOS, Apple Watch with watchOS, Apple TV with tvOS, or
+Apple Vision with visionOS. Prefer `family=SimulatorFamily.TV`/`WATCH`/`VISION`
+unless you need to pin raw CoreSimulator identifiers. Raw strings like
+`type="ios"` still work for compatibility. If omitted, the gateway defaults to
+iPhone 17 Pro on the latest installed iOS runtime.
 
 ## Examples
 

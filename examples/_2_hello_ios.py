@@ -1,6 +1,6 @@
-from use_computer import Computer
+from use_computer import Computer, SandboxType
 
-with Computer().create(type="ios") as ios:
+with Computer().create(type=SandboxType.IOS) as ios:
     ios.apps.open_url("https://example.com")
     png = ios.screenshot.take_full_screen()
     open("hello_ios.png", "wb").write(png)
