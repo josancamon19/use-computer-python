@@ -117,7 +117,11 @@ def select_simulator(
 
     fam = normalize_simulator_family(family)
     ios = platforms.get("ios") or {}
-    devices = [d for d in ios.get("device_types") or [] if family_for_device(d) == fam]
+    devices = [
+        d
+        for d in ios.get("device_types") or []
+        if family_for_device(d) == fam and is_usable_device_type(d)
+    ]
     if device_name:
         needle = device_name.lower()
         devices = [d for d in devices if needle in (d.get("name") or "").lower()]
@@ -155,4 +159,21 @@ def _default_device(family: SimulatorFamily, devices: list[dict[str, Any]]) -> d
             name = d.get("name") or ""
             if re.search(r"17 Pro\b", name) and "Max" not in name:
                 return d
+    if family == SimulatorFamily.VISION:
+        for d in devices:
+            if "Apple-Vision-Pro-4K" in (d.get("identifier") or ""):
+                return d
     return devices[0]
+
+
+def is_usable_device_type(device: dict[str, Any] | str) -> bool:
+    """Return false for simulator device types known to fail with current runtimes."""
+
+    text = (
+        device
+        if isinstance(device, str)
+        else f"{device.get('name', '')} {device.get('identifier', '')}"
+    )
+    if re.search(r"Apple[- ]Vision[- ]Pro", text, re.I):
+        return "Apple-Vision-Pro-4K" in text or re.search(r"\b4K\b", text, re.I) is not None
+    return True

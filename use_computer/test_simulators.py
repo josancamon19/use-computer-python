@@ -5,6 +5,7 @@ from use_computer.sandbox import SandboxType
 from use_computer.simulators import (
     SimulatorFamily,
     family_for_device,
+    is_usable_device_type,
     normalize_simulator_family,
     runtime_os,
     select_simulator,
@@ -84,3 +85,32 @@ def test_select_simulator_errors_when_runtime_missing():
 
     with pytest.raises(ValueError, match="no visionOS runtime"):
         select_simulator(platforms, SimulatorFamily.VISION)
+
+
+def test_select_simulator_filters_bad_vision_device_and_prefers_4k():
+    platforms = {
+        "ios": {
+            "device_types": [
+                {
+                    "identifier": "com.apple.CoreSimulator.SimDeviceType.Apple-Vision-Pro",
+                    "name": "Apple Vision Pro (at 2732x2048)",
+                },
+                {
+                    "identifier": "com.apple.CoreSimulator.SimDeviceType.Apple-Vision-Pro-4K",
+                    "name": "Apple Vision Pro",
+                },
+            ],
+            "runtimes": [
+                {
+                    "identifier": "com.apple.CoreSimulator.SimRuntime.xrOS-26-4",
+                    "name": "visionOS 26.4",
+                    "version": "26.4",
+                    "isAvailable": True,
+                },
+            ],
+        }
+    }
+
+    assert not is_usable_device_type("com.apple.CoreSimulator.SimDeviceType.Apple-Vision-Pro")
+    choice = select_simulator(platforms, SimulatorFamily.VISION)
+    assert choice.device_type.endswith("Apple-Vision-Pro-4K")

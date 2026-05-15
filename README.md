@@ -17,6 +17,7 @@ with Computer().create() as mac:
 
 with Computer().create(type=SandboxType.IOS, family=SimulatorFamily.TV) as tv:
     tv.screenshot.take_full_screen()
+    tv.input.press_remote("select")
 ```
 
 Full DSL reference (macOS + simulator): [docs.use.computer/docs/sdk](https://docs.use.computer/docs/sdk)
@@ -28,6 +29,8 @@ Apple Vision with visionOS. Prefer `family=SimulatorFamily.TV`/`WATCH`/`VISION`
 unless you need to pin raw CoreSimulator identifiers. Raw strings like
 `type="ios"` still work for compatibility. If omitted, the gateway defaults to
 iPhone 17 Pro on the latest installed iOS runtime.
+Known-incompatible simulator types are filtered from family selection,
+including the non-4K Apple Vision Pro type on current fleet runtimes.
 
 ## Examples
 

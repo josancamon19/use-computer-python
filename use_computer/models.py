@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -29,6 +30,9 @@ class DisplayInfo:
     width: int
     height: int
     scale: float = 1.0
+    platform: str = ""
+    device_type: str = ""
+    runtime: str = ""
 
     @classmethod
     def from_dict(cls, d: dict) -> DisplayInfo:
@@ -36,6 +40,28 @@ class DisplayInfo:
             width=d.get("width", 0),
             height=d.get("height", 0),
             scale=d.get("scale", 1.0),
+            platform=d.get("platform", ""),
+            device_type=(
+                d.get("device_type") or d.get("deviceType") or d.get("deviceTypeIdentifier", "")
+            ),
+            runtime=d.get("runtime", ""),
+        )
+
+
+@dataclass
+class AccessibilityTree:
+    """Best-effort simulator accessibility tree result."""
+
+    available: bool
+    tree: Any = None
+    error: str = ""
+
+    @classmethod
+    def from_dict(cls, d: dict) -> AccessibilityTree:
+        return cls(
+            available=bool(d.get("available", False)),
+            tree=d.get("tree"),
+            error=d.get("error", ""),
         )
 
 

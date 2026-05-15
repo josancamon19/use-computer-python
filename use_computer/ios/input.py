@@ -17,6 +17,19 @@ class Button(str, Enum):
     APPLE_PAY = "apple-pay"
 
 
+class RemoteButton(str, Enum):
+    """Apple TV remote-style controls."""
+
+    UP = "up"
+    DOWN = "down"
+    LEFT = "left"
+    RIGHT = "right"
+    SELECT = "select"
+    MENU = "menu"
+    HOME = "home"
+    PLAY_PAUSE = "play-pause"
+
+
 class Key(int, Enum):
     """Common HID keycodes for iOS simulator key presses."""
 
@@ -79,6 +92,13 @@ class Input:
         resp.raise_for_status()
         return ActionResult.from_dict(resp.json())
 
+    def press_remote(self, button: RemoteButton | str) -> ActionResult:
+        """Press an Apple TV remote-style control."""
+        val = button.value if isinstance(button, RemoteButton) else button
+        resp = self._http.post(f"{self._prefix}/remote", json={"button": val})
+        resp.raise_for_status()
+        return ActionResult.from_dict(resp.json())
+
 
 class AsyncInput:
     def __init__(self, http: httpx.AsyncClient, prefix: str):
@@ -114,5 +134,12 @@ class AsyncInput:
         """Press a key by HID keycode. Use Key enum for common keys."""
         val = keycode.value if isinstance(keycode, Key) else keycode
         resp = await self._http.post(f"{self._prefix}/key", json={"keycode": val})
+        resp.raise_for_status()
+        return ActionResult.from_dict(resp.json())
+
+    async def press_remote(self, button: RemoteButton | str) -> ActionResult:
+        """Press an Apple TV remote-style control."""
+        val = button.value if isinstance(button, RemoteButton) else button
+        resp = await self._http.post(f"{self._prefix}/remote", json={"button": val})
         resp.raise_for_status()
         return ActionResult.from_dict(resp.json())

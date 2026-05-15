@@ -9,6 +9,7 @@ from pathlib import Path
 
 import httpx
 
+from use_computer.accessibility import Accessibility, AsyncAccessibility
 from use_computer.display import AsyncDisplay, Display
 from use_computer.ios.apps import Apps, AsyncApps
 from use_computer.ios.environment import AsyncEnvironment, Environment
@@ -104,6 +105,7 @@ class Sandbox:
         self.screenshot = Screenshot(http, self._prefix)
         self.recording = Recording(http, self._prefix)
         self.display = Display(http, self._prefix)
+        self.accessibility = Accessibility(http, self._prefix)
 
     def upload(self, local_path: str | Path, remote_path: str) -> None:
         with open(local_path, "rb") as f:
@@ -279,6 +281,7 @@ class AsyncSandbox:
         self.screenshot = AsyncScreenshot(http, self._prefix)
         self.recording = AsyncRecording(http, self._prefix)
         self.display = AsyncDisplay(http, self._prefix)
+        self.accessibility = AsyncAccessibility(http, self._prefix)
 
     async def upload(self, local_path: str | Path, remote_path: str) -> None:
         with open(local_path, "rb") as f:
