@@ -35,15 +35,26 @@ iPhone 17 Pro on the latest installed iOS runtime.
 Known-incompatible simulator types are filtered from family selection,
 including the non-4K Apple Vision Pro type on current fleet runtimes.
 
+### Per-family input
+
+iPhone / iPad sims have full touch + on-screen keyboard. Apple Watch supports
+touch + crown / button (no `type_text` — watchOS keyboard isn't exposed). Apple
+TV has no touch — drive it with `input.press_remote(RemoteButton.SELECT)` (the
+remote D-pad, select, menu, home, play/pause). **Apple Vision (visionOS) is
+BETA**: sessions display and you can screenshot / launch apps, but
+`input.tap` is a no-op because there's no XCTest-free coordinate tap path on
+visionOS yet. Use it for read-only flows for now.
+
 ## Examples
 
-| File                                                           | What it shows                              |
-| -------------------------------------------------------------- | ------------------------------------------ |
-| [`examples/_1_hello_macos.py`](examples/_1_hello_macos.py)     | create → exec → keyboard → screenshot      |
-| [`examples/_2_hello_ios.py`](examples/_2_hello_ios.py)         | create simulator → open URL → screenshot   |
-| [`examples/_3_recording.py`](examples/_3_recording.py)         | start / stop / download a screen recording |
-| [`examples/_4_file_transfer.py`](examples/_4_file_transfer.py) | upload bytes, download a file back         |
-| [`examples/_5_keepalive.py`](examples/_5_keepalive.py)         | heartbeat for sessions idle > 2 min        |
+| File                                                           | What it shows                                  |
+| -------------------------------------------------------------- | ---------------------------------------------- |
+| [`examples/_1_hello_macos.py`](examples/_1_hello_macos.py)     | create → exec → keyboard → screenshot          |
+| [`examples/_2_hello_ios.py`](examples/_2_hello_ios.py)         | create iPhone sim → open URL → screenshot      |
+| [`examples/_3_recording.py`](examples/_3_recording.py)         | start / stop / download a screen recording     |
+| [`examples/_4_file_transfer.py`](examples/_4_file_transfer.py) | upload bytes, download a file back             |
+| [`examples/_5_keepalive.py`](examples/_5_keepalive.py)         | heartbeat for sessions idle > 2 min            |
+| [`examples/_6_hello_tvos.py`](examples/_6_hello_tvos.py)       | tvOS: pick TV family + drive the Apple Remote  |
 
 For agent loops and evals: [use-computer-cookbook](https://github.com/josancamon19/use-computer-cookbook).
 
