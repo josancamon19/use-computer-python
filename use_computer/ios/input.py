@@ -65,6 +65,15 @@ class Input:
         resp.raise_for_status()
         return ActionResult.from_dict(resp.json())
 
+    def long_press(self, x: float, y: float, duration: float = 1.0) -> ActionResult:
+        """Hold a touch at coordinates for duration seconds."""
+        resp = self._http.post(
+            f"{self._prefix}/long_press",
+            json={"x": x, "y": y, "duration": duration},
+        )
+        resp.raise_for_status()
+        return ActionResult.from_dict(resp.json())
+
     def swipe(self, from_x: float, from_y: float, to_x: float, to_y: float) -> ActionResult:
         resp = self._http.post(
             f"{self._prefix}/swipe",
@@ -107,6 +116,15 @@ class AsyncInput:
 
     async def tap(self, x: float, y: float) -> ActionResult:
         resp = await self._http.post(f"{self._prefix}/tap", json={"x": x, "y": y})
+        resp.raise_for_status()
+        return ActionResult.from_dict(resp.json())
+
+    async def long_press(self, x: float, y: float, duration: float = 1.0) -> ActionResult:
+        """Hold a touch at coordinates for duration seconds."""
+        resp = await self._http.post(
+            f"{self._prefix}/long_press",
+            json={"x": x, "y": y, "duration": duration},
+        )
         resp.raise_for_status()
         return ActionResult.from_dict(resp.json())
 

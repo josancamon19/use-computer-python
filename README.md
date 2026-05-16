@@ -18,6 +18,9 @@ with Computer().create() as mac:
 with Computer().create(type=SandboxType.IOS, family=SimulatorFamily.TV) as tv:
     tv.screenshot.take_full_screen()
     tv.input.press_remote("select")
+
+with Computer().create(type=SandboxType.IOS) as ios:
+    ios.input.long_press(120, 300, duration=1.0)
 ```
 
 Full DSL reference (macOS + simulator): [docs.use.computer/docs/sdk](https://docs.use.computer/docs/sdk)

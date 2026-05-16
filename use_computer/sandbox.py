@@ -243,7 +243,7 @@ class MacOSSandbox(Sandbox):
 
 
 class IOSSandbox(Sandbox):
-    """iOS simulator sandbox — tap, swipe, hardware buttons, app management."""
+    """iOS simulator sandbox — tap, long press, swipe, buttons, apps."""
 
     def __init__(self, sandbox_id: str, http: httpx.Client):
         super().__init__(sandbox_id, SandboxType.IOS, http)
